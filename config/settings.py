@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     langchain_api_key: str = ""
     langsmith_project: str = "rtv-multi-agent-system"
 
+    # --- Experiment Tracking (Weights & Biases) ---
+    wandb_api_key: str = ""
+    wandb_project: str = "rtv-multi-agent-eval"
+
     # --- Database ---
     duckdb_path: str = "data/rtv_households.duckdb"
 
