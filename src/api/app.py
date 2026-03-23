@@ -18,6 +18,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.core.tracing import setup_tracing
+from src.core.observability import setup_langsmith
 from src.api.middleware import TracingMiddleware, RateLimitMiddleware, RequestLoggingMiddleware
 from src.api.routes import router
 
@@ -43,8 +44,9 @@ async def lifespan(app: FastAPI):
 
     logger.info("Initializing RTV Multi-Agent System...")
 
-    # Initialize OpenTelemetry tracing
+    # Initialize observability
     setup_tracing()
+    setup_langsmith()
 
     # Initialize orchestrator (SQL agent + RAG agent)
     orchestrator = MultiAgentOrchestrator()

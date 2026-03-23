@@ -30,7 +30,12 @@ class Settings(BaseSettings):
     llm_model: str = "claude-sonnet-4-20250514"
     llm_temperature: float = 0.0
     llm_max_tokens: int = 4096
+    # Judge: separate LLM call to avoid self-evaluation bias (design doc Section 7)
     judge_model: str = "claude-sonnet-4-20250514"
+
+    # --- Observability (LangSmith) ---
+    langchain_api_key: str = ""
+    langsmith_project: str = "rtv-multi-agent-system"
 
     # --- Database ---
     duckdb_path: str = "data/rtv_households.duckdb"

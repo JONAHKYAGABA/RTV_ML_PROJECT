@@ -4,6 +4,10 @@ Full evaluation harness runner.
 Executes all benchmark questions from eval_questions.yaml, scores
 each with the LLM-as-Judge, and produces a structured JSON + Markdown report.
 Designed to run in CI: exits non-zero if any metric falls below threshold.
+
+Integrations:
+  - LangSmith: Automatic tracing of all LangChain/LangGraph calls
+  - Weights & Biases: Experiment tracking, metric logging, artifact storage
 """
 
 from __future__ import annotations
@@ -17,6 +21,15 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+
+from src.core.observability import (
+    setup_langsmith,
+    setup_wandb,
+    log_eval_metrics,
+    log_eval_table,
+    log_artifact,
+    finish_wandb,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,11 +58,25 @@ class EvaluationRunner:
     def run_all(self, output_dir: str | Path | None = None) -> dict[str, Any]:
         """Run all evaluation questions and produce a report.
 
+        Automatically integrates with LangSmith (tracing) and W&B (metrics).
+
         Returns:
             Complete evaluation report as a dictionary.
         """
         output_dir = Path(output_dir) if output_dir else RESULTS_DIR
         output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Initialize observability integrations
+        langsmith_ok = setup_langsmith(project_name="rtv-multi-agent-eval")
+        wandb_ok = setup_wandb(
+            project="rtv-multi-agent-eval",
+            config={
+                "llm_model": "claude-sonnet-4-20250514",
+                "judge_model": "claude-haiku-4-5-20251001",
+                "eval_type": "full_benchmark",
+            },
+            tags=["evaluation", "benchmark"],
+        )
 
         config = load_eval_questions()
         eval_run_id = str(uuid.uuid4())[:8]
@@ -80,6 +107,13 @@ class EvaluationRunner:
             q_result = self._evaluate_single(qid, question, expected_route, q_config)
             results["questions"].append(q_result)
 
+            # Log per-question metrics to W&B
+            if isinstance(q_result.get("judge_scores"), dict):
+                log_eval_metrics(
+                    {f"{qid}/{k}": v for k, v in q_result["judge_scores"].items()},
+                    step=i,
+                )
+
         # Compute summary
         results["summary"] = self._compute_summary(results["questions"])
         results["overall_pass"] = all(q["pass"] for q in results["questions"])
@@ -87,6 +121,19 @@ class EvaluationRunner:
         # Write outputs
         self._write_json_report(results, output_dir)
         self._write_markdown_report(results, output_dir)
+
+        # Log summary metrics and results table to W&B
+        log_eval_metrics(results["summary"])
+        log_eval_table(results["questions"])
+
+        # Log reports as W&B artifacts
+        json_path = str(output_dir / "latest_eval.json")
+        md_path = str(output_dir / "latest_eval.md")
+        log_artifact(json_path, name="eval-report-json", artifact_type="evaluation")
+        log_artifact(md_path, name="eval-report-md", artifact_type="evaluation")
+
+        # Finalize W&B run
+        finish_wandb()
 
         pass_count = sum(1 for q in results["questions"] if q["pass"])
         total = len(results["questions"])
@@ -96,6 +143,10 @@ class EvaluationRunner:
             total,
             "PASS" if results["overall_pass"] else "FAIL",
         )
+        if langsmith_ok:
+            logger.info("Traces available in LangSmith project: rtv-multi-agent-eval")
+        if wandb_ok:
+            logger.info("Metrics logged to Weights & Biases")
 
         return results
 
