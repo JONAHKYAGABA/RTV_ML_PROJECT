@@ -35,16 +35,25 @@ class Settings(BaseSettings):
     # --- Database ---
     duckdb_path: str = "data/rtv_households.duckdb"
 
-    # --- Vector Store ---
+    # --- Vector Store (Qdrant) ---
     qdrant_host: str = "localhost"
     qdrant_port: int = 6333
-    qdrant_collection: str = "rtv_agriculture"
+    qdrant_collection: str = "rtv_handbook"
     embedding_model: str = "all-MiniLM-L6-v2"
 
     # --- Redis ---
     redis_host: str = "localhost"
     redis_port: int = 6379
     redis_db: int = 0
+
+    # --- Object Storage (MinIO / S3) ---
+    minio_endpoint: str = "localhost:9000"
+    minio_access_key: str = "minioadmin"
+    minio_secret_key: str = "minioadmin"
+    minio_bucket: str = "rtv-artifacts"
+
+    # --- Tracing ---
+    otel_endpoint: str = "http://localhost:4317"
 
     # --- API ---
     api_host: str = "0.0.0.0"
@@ -68,6 +77,14 @@ class Settings(BaseSettings):
     @property
     def redis_url(self) -> str:
         return f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"
+
+    @property
+    def qdrant_url(self) -> str:
+        return f"http://{self.qdrant_host}:{self.qdrant_port}"
+
+    @property
+    def minio_url(self) -> str:
+        return f"http://{self.minio_endpoint}"
 
 
 @lru_cache(maxsize=1)
