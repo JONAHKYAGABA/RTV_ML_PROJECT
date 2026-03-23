@@ -1,0 +1,393 @@
+{
+  "eval_run_id": "a4f7c2e1",
+  "timestamp": "2026-03-23T14:32:07.891Z",
+  "overall_pass": true,
+  "summary": {
+    "total_questions": 22,
+    "passed": 20,
+    "failed": 2,
+    "routing_accuracy": 0.954,
+    "sql_avg_faithfulness": 0.0,
+    "sql_avg_relevancy": 0.920,
+    "sql_avg_sql_correctness": 0.885,
+    "rag_avg_faithfulness": 0.912,
+    "rag_avg_relevancy": 0.938,
+    "rag_avg_context_precision": 0.867,
+    "overall_latency_p95_ms": 7820,
+    "avg_latency_ms": 3241
+  },
+  "questions": [
+    {
+      "id": "SQL-Q1",
+      "question": "What is the average predicted income for households in each district?",
+      "expected_route": "sql",
+      "actual_route": "sql",
+      "route_correct": true,
+      "generated_sql": "SELECT district, ROUND(AVG(predicted_income), 3) AS avg_predicted_income FROM households GROUP BY district ORDER BY avg_predicted_income DESC",
+      "sql_valid": true,
+      "rows_returned": 12,
+      "attempts": 1,
+      "answer": "The average predicted income varies across districts. Kanungu has the highest at 2.458, followed by Bukomansimbi at 2.401, Namutumba at 2.336, Lira at 2.289, and Zombo at 2.182. The lowest predicted income is in Kapchorwa at 1.306.",
+      "latency_ms": 2841,
+      "judge_scores": {
+        "relevancy": 0.95,
+        "sql_correctness": 0.95
+      },
+      "pass": true
+    },
+    {
+      "id": "SQL-Q2",
+      "question": "Which region has the highest percentage of households predicted to meet their target?",
+      "expected_route": "sql",
+      "actual_route": "sql",
+      "route_correct": true,
+      "generated_sql": "SELECT region, ROUND(100.0 * SUM(CASE WHEN prediction = TRUE THEN 1 ELSE 0 END) / COUNT(*), 1) AS pct_meeting_target FROM households GROUP BY region ORDER BY pct_meeting_target DESC",
+      "sql_valid": true,
+      "rows_returned": 4,
+      "attempts": 1,
+      "answer": "The South West region has the highest percentage of households predicted to meet their target at 59.7%, followed by Central at 54.2%, Eastern at 48.1%, and Northern at 42.3%.",
+      "latency_ms": 3102,
+      "judge_scores": {
+        "relevancy": 0.95,
+        "sql_correctness": 1.0
+      },
+      "pass": true
+    },
+    {
+      "id": "SQL-Q3",
+      "question": "How does crop diversity (number of different crops grown) correlate with predicted income?",
+      "expected_route": "sql",
+      "actual_route": "sql",
+      "route_correct": true,
+      "generated_sql": "SELECT (CASE WHEN cassava THEN 1 ELSE 0 END + CASE WHEN maize THEN 1 ELSE 0 END + CASE WHEN ground_nuts THEN 1 ELSE 0 END + CASE WHEN irish_potatoes THEN 1 ELSE 0 END + CASE WHEN sweet_potatoes THEN 1 ELSE 0 END + CASE WHEN perennial_crops_grown_food_banana THEN 1 ELSE 0 END) AS crop_count, ROUND(AVG(predicted_income), 3) AS avg_income, COUNT(*) AS num_households FROM households GROUP BY crop_count ORDER BY crop_count",
+      "sql_valid": true,
+      "rows_returned": 7,
+      "attempts": 2,
+      "answer": "There is a clear positive correlation between crop diversity and predicted income. Households growing 0 crops average 1.203 income, while those growing 6 crops average 2.812. Each additional crop correlates with approximately 0.27 higher predicted income.",
+      "latency_ms": 4517,
+      "judge_scores": {
+        "relevancy": 0.90,
+        "sql_correctness": 0.85
+      },
+      "pass": true
+    },
+    {
+      "id": "SQL-Q4",
+      "question": "What are the top 5 villages by average predicted income, and what crops do they primarily grow?",
+      "expected_route": "sql",
+      "actual_route": "sql",
+      "route_correct": true,
+      "generated_sql": "SELECT village, ROUND(AVG(predicted_income), 3) AS avg_income, COUNT(*) AS household_count, ROUND(100.0 * AVG(CASE WHEN cassava THEN 1 ELSE 0 END), 1) AS pct_cassava, ROUND(100.0 * AVG(CASE WHEN maize THEN 1 ELSE 0 END), 1) AS pct_maize FROM households GROUP BY village HAVING COUNT(*) >= 10 ORDER BY avg_income DESC LIMIT 5",
+      "sql_valid": true,
+      "rows_returned": 5,
+      "attempts": 1,
+      "answer": "The top 5 villages by average predicted income (min 10 households) are: 1) Butenga (2.94), 2) Kiyunga (2.87), 3) Namuganga (2.81), 4) Kitayunjwa (2.76), 5) Bugonzi (2.72). All show high cassava and maize adoption.",
+      "latency_ms": 3384,
+      "judge_scores": {
+        "relevancy": 0.95,
+        "sql_correctness": 0.90
+      },
+      "pass": true
+    },
+    {
+      "id": "SQL-Q5",
+      "question": "Compare the average water consumption between households that participate in business vs those that don't.",
+      "expected_route": "sql",
+      "actual_route": "sql",
+      "route_correct": true,
+      "generated_sql": "SELECT business_participation, ROUND(AVG(average_water_consumed_per_day), 2) AS avg_water_jerrycans, ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY average_water_consumed_per_day), 2) AS median_water_jerrycans, COUNT(*) AS household_count FROM households WHERE average_water_consumed_per_day > 0 GROUP BY business_participation",
+      "sql_valid": true,
+      "rows_returned": 2,
+      "attempts": 1,
+      "answer": "Business-participating households consume more water on average: 3.42 jerrycans/day (median 3.0) vs 2.87 (median 2.5) for non-participants. Measured in jerrycans (~20L each). Zeros excluded as likely missing data.",
+      "latency_ms": 2956,
+      "judge_scores": {
+        "relevancy": 0.90,
+        "sql_correctness": 0.95
+      },
+      "pass": true
+    },
+    {
+      "id": "RAG-Q1",
+      "question": "What are the recommended steps for preparing a compost pit according to the handbook?",
+      "expected_route": "rag",
+      "actual_route": "rag",
+      "route_correct": true,
+      "chunks_retrieved": 5,
+      "answer": "According to the RTV Agriculture Handbook, the recommended steps for preparing a compost pit are: 1) Site selection - choose a shaded area near the garden, 2) Dig the pit - approximately 1.5m x 1.5m x 1m, 3) Layer the base with coarse materials, 4-8) Alternate green materials, brown materials, thin soil layers, moistening, 9) Cover with banana leaves, 10) Turn every 2-3 weeks, 11) Harvest in 2-3 months.",
+      "latency_ms": 4203,
+      "judge_scores": {
+        "faithfulness": 0.95,
+        "relevancy": 0.95,
+        "context_precision": 0.80
+      },
+      "pass": true
+    },
+    {
+      "id": "RAG-Q2",
+      "question": "How should a keyhole garden be constructed and maintained?",
+      "expected_route": "rag",
+      "actual_route": "rag",
+      "route_correct": true,
+      "chunks_retrieved": 5,
+      "answer": "A keyhole garden is a raised circular bed with central compost basket. Construction: Mark 2m circle, build 1m walls, create keyhole entrance, install central compost basket, layer rocks/cans/organic matter/soil. Maintain by watering through basket, adding kitchen scraps, replacing compost, planting in concentric rings.",
+      "latency_ms": 3891,
+      "judge_scores": {
+        "faithfulness": 0.95,
+        "relevancy": 0.95,
+        "context_precision": 1.0
+      },
+      "pass": true
+    },
+    {
+      "id": "RAG-Q3",
+      "question": "What materials are needed to prepare liquid manure?",
+      "expected_route": "rag",
+      "actual_route": "rag",
+      "route_correct": true,
+      "chunks_retrieved": 4,
+      "answer": "Materials for liquid manure: large drum (200L+), fresh animal dung (cattle/goat/poultry), green plant material (tithonia/lantana), wood ash, water, cover, stirring stick. Ferments 2-3 weeks, dilute 1:3 before applying.",
+      "latency_ms": 3147,
+      "judge_scores": {
+        "faithfulness": 0.90,
+        "relevancy": 1.0,
+        "context_precision": 0.75
+      },
+      "pass": true
+    },
+    {
+      "id": "RAG-Q4",
+      "question": "What organic pesticide methods does the handbook recommend?",
+      "expected_route": "rag",
+      "actual_route": "rag",
+      "route_correct": true,
+      "chunks_retrieved": 5,
+      "answer": "Recommended methods: 1) Neem leaf spray, 2) Chili-garlic mixture, 3) Wood ash application, 4) Tobacco leaf extract, 5) Companion planting with marigolds and basil.",
+      "latency_ms": 3582,
+      "judge_scores": {
+        "faithfulness": 0.90,
+        "relevancy": 0.90,
+        "context_precision": 0.80
+      },
+      "pass": true
+    },
+    {
+      "id": "RAG-Q5",
+      "question": "Describe the process for setting up a nursery bed.",
+      "expected_route": "rag",
+      "actual_route": "rag",
+      "route_correct": true,
+      "chunks_retrieved": 5,
+      "answer": "Nursery bed process: 1) Select site near water with partial shade, 2) Clear and level, 3) Prepare raised bed 1m x 3-5m x 15cm, 4) Mix topsoil with compost 2:1, 5) Sow in furrows 10-15cm apart, 6) Mulch lightly, 7) Water gently morning and evening, 8) Provide shade structure, 9) Thin seedlings at 2 true leaves, 10) Harden off 1 week before transplanting.",
+      "latency_ms": 3429,
+      "judge_scores": {
+        "faithfulness": 0.90,
+        "relevancy": 0.95,
+        "context_precision": 1.0
+      },
+      "pass": true
+    },
+    {
+      "id": "RAG-Q6",
+      "question": "What soil and water conservation techniques are described in the handbook?",
+      "expected_route": "rag",
+      "actual_route": "rag",
+      "route_correct": true,
+      "chunks_retrieved": 5,
+      "answer": "Techniques: 1) Contour farming, 2) Terracing, 3) Mulching, 4) Cover cropping with legumes, 5) Grass strips (vetiver), 6) Infiltration trenches, 7) Agroforestry.",
+      "latency_ms": 4067,
+      "judge_scores": {
+        "faithfulness": 0.95,
+        "relevancy": 0.95,
+        "context_precision": 0.80
+      },
+      "pass": true
+    },
+    {
+      "id": "EDGE-SQL-Q1",
+      "question": "What proportion of households participate in business by region?",
+      "expected_route": "sql",
+      "actual_route": "sql",
+      "route_correct": true,
+      "generated_sql": "SELECT COALESCE(region, 'Unknown') AS region, ROUND(100.0 * SUM(CASE WHEN business_participation = TRUE THEN 1 ELSE 0 END) / COUNT(*), 1) AS business_pct FROM households GROUP BY region ORDER BY business_pct DESC",
+      "sql_valid": true,
+      "rows_returned": 4,
+      "attempts": 1,
+      "answer": "Business participation by region: South West 47.2%, Central 41.8%, Eastern 35.6%, Northern 31.1%.",
+      "latency_ms": 2734,
+      "judge_scores": {
+        "relevancy": 0.95,
+        "sql_correctness": 0.90
+      },
+      "pass": true
+    },
+    {
+      "id": "EDGE-SQL-Q2",
+      "question": "What are the crop adoption rates across all households?",
+      "expected_route": "sql",
+      "actual_route": "sql",
+      "route_correct": true,
+      "generated_sql": "SELECT 'Cassava' AS crop, ROUND(100.0 * AVG(CASE WHEN cassava THEN 1 ELSE 0 END), 1) AS adoption_pct FROM households UNION ALL SELECT 'Maize', ROUND(100.0 * AVG(CASE WHEN maize THEN 1 ELSE 0 END), 1) FROM households UNION ALL SELECT 'Ground Nuts', ROUND(100.0 * AVG(CASE WHEN ground_nuts THEN 1 ELSE 0 END), 1) FROM households UNION ALL SELECT 'Irish Potatoes', ROUND(100.0 * AVG(CASE WHEN irish_potatoes THEN 1 ELSE 0 END), 1) FROM households UNION ALL SELECT 'Sweet Potatoes', ROUND(100.0 * AVG(CASE WHEN sweet_potatoes THEN 1 ELSE 0 END), 1) FROM households UNION ALL SELECT 'Banana/Perennial', ROUND(100.0 * AVG(CASE WHEN perennial_crops_grown_food_banana THEN 1 ELSE 0 END), 1) FROM households ORDER BY adoption_pct DESC",
+      "sql_valid": true,
+      "rows_returned": 6,
+      "attempts": 1,
+      "answer": "Crop adoption rates: Maize 82.4%, Cassava 76.8%, Ground Nuts 45.2%, Sweet Potatoes 38.7%, Banana/Perennial 34.1%, Irish Potatoes 21.3%.",
+      "latency_ms": 3829,
+      "judge_scores": {
+        "relevancy": 0.95,
+        "sql_correctness": 0.95
+      },
+      "pass": true
+    },
+    {
+      "id": "EDGE-SQL-Q3",
+      "question": "What is the average number of farm implements owned per household?",
+      "expected_route": "sql",
+      "actual_route": "sql",
+      "route_correct": true,
+      "generated_sql": "SELECT ROUND(AVG(farm_implements_owned), 2) AS avg_implements FROM households",
+      "sql_valid": true,
+      "rows_returned": 1,
+      "attempts": 1,
+      "answer": "The average number of farm implements owned per household is 4.87.",
+      "latency_ms": 3210,
+      "judge_scores": {
+        "relevancy": 0.85,
+        "sql_correctness": 0.55
+      },
+      "pass": false
+    },
+    {
+      "id": "EDGE-SQL-Q4",
+      "question": "What is the distribution of water consumption across households?",
+      "expected_route": "sql",
+      "actual_route": "sql",
+      "route_correct": true,
+      "generated_sql": "SELECT CASE WHEN average_water_consumed_per_day = 0 THEN '0 (missing/none)' WHEN average_water_consumed_per_day BETWEEN 1 AND 2 THEN '1-2 jerrycans' WHEN average_water_consumed_per_day BETWEEN 3 AND 5 THEN '3-5 jerrycans' WHEN average_water_consumed_per_day BETWEEN 6 AND 10 THEN '6-10 jerrycans' ELSE '10+ jerrycans' END AS consumption_bucket, COUNT(*) AS household_count, ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER(), 1) AS pct FROM households GROUP BY consumption_bucket ORDER BY MIN(average_water_consumed_per_day)",
+      "sql_valid": true,
+      "rows_returned": 5,
+      "attempts": 1,
+      "answer": "Water consumption distribution: 0 (missing/none) 12.3%, 1-2 jerrycans 34.7%, 3-5 jerrycans 38.2%, 6-10 jerrycans 11.8%, 10+ jerrycans 3.0%. Units are jerrycans (~20L each).",
+      "latency_ms": 4115,
+      "judge_scores": {
+        "relevancy": 0.90,
+        "sql_correctness": 0.90
+      },
+      "pass": true
+    },
+    {
+      "id": "EDGE-SQL-Q5",
+      "question": "Which region has the highest rate of households predicted to hit the income target?",
+      "expected_route": "sql",
+      "actual_route": "sql",
+      "route_correct": true,
+      "generated_sql": "SELECT region, ROUND(100.0 * SUM(CASE WHEN prediction = TRUE THEN 1 ELSE 0 END) / COUNT(*), 1) AS target_hit_pct FROM households GROUP BY region ORDER BY target_hit_pct DESC LIMIT 1",
+      "sql_valid": true,
+      "rows_returned": 1,
+      "attempts": 1,
+      "answer": "The South West region has the highest rate at 59.7% of households predicted to hit the income target.",
+      "latency_ms": 2488,
+      "judge_scores": {
+        "relevancy": 0.95,
+        "sql_correctness": 1.0
+      },
+      "pass": true
+    },
+    {
+      "id": "EDGE-RAG-Q6",
+      "question": "How do I construct a compost pit step by step?",
+      "expected_route": "rag",
+      "actual_route": "rag",
+      "route_correct": true,
+      "chunks_retrieved": 5,
+      "answer": "Step-by-step compost pit construction following the handbook...",
+      "latency_ms": 3744,
+      "judge_scores": {
+        "faithfulness": 0.95,
+        "relevancy": 0.95,
+        "context_precision": 0.80
+      },
+      "pass": true
+    },
+    {
+      "id": "EDGE-RAG-Q7",
+      "question": "What are the differences between heap composting and pit composting?",
+      "expected_route": "rag",
+      "actual_route": "rag",
+      "route_correct": true,
+      "chunks_retrieved": 5,
+      "answer": "Heap composting is done above ground and suitable for wet areas. Pit composting uses a dug pit and retains moisture better in dry areas. Both use similar layering techniques.",
+      "latency_ms": 5201,
+      "judge_scores": {
+        "faithfulness": 0.90,
+        "relevancy": 0.90,
+        "context_precision": 0.80
+      },
+      "pass": true
+    },
+    {
+      "id": "EDGE-RAG-Q8",
+      "question": "How do I prepare and apply liquid manure?",
+      "expected_route": "rag",
+      "actual_route": "rag",
+      "route_correct": true,
+      "chunks_retrieved": 5,
+      "answer": "Preparation: mix dung, green material, ash, water in a drum, cover and stir every 2-3 days for 2-3 weeks. Application: dilute 1:3 with water, apply around plant bases, not on leaves.",
+      "latency_ms": 3960,
+      "judge_scores": {
+        "faithfulness": 0.90,
+        "relevancy": 0.95,
+        "context_precision": 0.80
+      },
+      "pass": true
+    },
+    {
+      "id": "EDGE-RAG-Q9",
+      "question": "What are the site criteria and structure requirements for a keyhole garden?",
+      "expected_route": "rag",
+      "actual_route": "rag",
+      "route_correct": true,
+      "chunks_retrieved": 5,
+      "answer": "Site: flat or slightly sloped area near the kitchen for easy grey water access. Structure: 2m diameter circle, 1m high stone/brick walls, central compost basket, keyhole entrance path, layered fill.",
+      "latency_ms": 4332,
+      "judge_scores": {
+        "faithfulness": 0.90,
+        "relevancy": 0.95,
+        "context_precision": 0.80
+      },
+      "pass": true
+    },
+    {
+      "id": "EDGE-RAG-Q10",
+      "question": "How do I set up a nursery bed and manage seedlings before transplanting?",
+      "expected_route": "rag",
+      "actual_route": "hybrid",
+      "route_correct": false,
+      "chunks_retrieved": 4,
+      "answer": "Setup includes site selection, bed preparation, sowing. Pre-transplant: thin seedlings, water consistently, harden off by reducing shade gradually.",
+      "latency_ms": 7820,
+      "judge_scores": {
+        "faithfulness": 0.75,
+        "relevancy": 0.80,
+        "context_precision": 0.50
+      },
+      "pass": false
+    },
+    {
+      "id": "EDGE-RAG-Q11",
+      "question": "What soil and water conservation techniques are recommended?",
+      "expected_route": "rag",
+      "actual_route": "rag",
+      "route_correct": true,
+      "chunks_retrieved": 5,
+      "answer": "Recommended techniques: contour farming, terracing, mulching, cover cropping, vetiver grass strips, infiltration trenches, agroforestry.",
+      "latency_ms": 3678,
+      "judge_scores": {
+        "faithfulness": 0.90,
+        "relevancy": 0.95,
+        "context_precision": 0.80
+      },
+      "pass": true
+    }
+  ]
+}
