@@ -22,6 +22,341 @@
 
 ---
 
+## System Architecture Diagram (Mermaid)
+
+### Full Multi-Agent System Architecture
+
+```mermaid
+graph TB
+    subgraph CLIENT["Client Layer"]
+        USER["User / Browser"]
+        TESTUI["Test Dashboard<br/>/test"]
+        SWAGGER["Swagger UI<br/>/docs"]
+    end
+
+    subgraph API_LAYER["API Layer — FastAPI :8000"]
+        direction TB
+        CORS["CORS Middleware"]
+        TRACING_MW["Tracing Middleware<br/>OpenTelemetry"]
+        RATELIMIT["Rate Limit Middleware<br/>Token Bucket + Redis"]
+        LOGGING_MW["Request Logging<br/>structlog JSON"]
+        ROUTES["API Routes<br/>/api/v1/*"]
+    end
+
+    subgraph ORCHESTRATOR["LangGraph Orchestrator"]
+        direction TB
+        CLASSIFY["Intent Classifier<br/>Claude Sonnet 4"]
+        SQL_NODE["SQL Agent Node"]
+        RAG_NODE["RAG Agent Node"]
+        BOTH_NODE["Hybrid Node<br/>Both Agents"]
+        SYNTH["Synthesizer<br/>Claude Sonnet 4"]
+    end
+
+    subgraph SQL_AGENT["Text-to-SQL Agent — LangGraph 6-Node"]
+        direction LR
+        REWRITE["Query<br/>Rewriter"]
+        SCHEMA["Schema<br/>Loader"]
+        SQLGEN["SQL<br/>Generator<br/>Claude Sonnet 4"]
+        VALIDATE["Validator<br/>sqlglot"]
+        EXECUTE["Executor<br/>DuckDB"]
+        EXPLAIN["Explainer<br/>Claude Sonnet 4"]
+    end
+
+    subgraph RAG_PIPELINE["RAG Pipeline — 4-Stage Retrieval"]
+        direction LR
+        HYDE["HyDE Query<br/>Expansion<br/>Claude Sonnet 4"]
+        VSEARCH["Vector Search<br/>Qdrant / ChromaDB<br/>Top-20 candidates"]
+        RERANK["Cross-Encoder<br/>Reranking<br/>ms-marco-MiniLM<br/>Top-5 final"]
+        ANSWER["Answer<br/>Generation<br/>Claude Sonnet 4"]
+    end
+
+    subgraph DATA_LAYER["Data Layer"]
+        DUCKDB[("DuckDB<br/>27,525 households<br/>~30 columns")]
+        QDRANT[("Qdrant v1.9.7<br/>rtv_handbook collection<br/>1,000+ chunks<br/>1024-dim cosine")]
+        REDIS[("Redis 7-alpine<br/>Conversation memory<br/>Semantic cache<br/>Rate limit state")]
+    end
+
+    subgraph EMBEDDING["Embedding Layer"]
+        BGE["BGE-M3<br/>BAAI/bge-m3<br/>1024-dim dense + sparse"]
+    end
+
+    subgraph DATA_SOURCES["Source Data — Bind Mounts"]
+        EXCEL["Test Data .xlsx<br/>27,525 rows"]
+        HANDBOOK["Agriculture Handbook<br/>PDF"]
+    end
+
+    subgraph INFRA["Infrastructure Services — Docker"]
+        MINIO["MinIO<br/>S3-compatible<br/>Object Storage<br/>:9000 / :9001"]
+        MINIO_INIT["MinIO Init<br/>Bucket Creation<br/>one-shot"]
+        JAEGER["Jaeger<br/>Distributed Tracing<br/>OTLP :4317<br/>UI :16686"]
+    end
+
+    subgraph OBSERVABILITY["Observability Stack"]
+        OTEL["OpenTelemetry SDK<br/>Spans + Traces"]
+        LANGSMITH["LangSmith<br/>LangChain Tracing<br/>Token Usage"]
+        WANDB["Weights & Biases<br/>Experiment Tracking<br/>optional"]
+    end
+
+    subgraph EVAL["Evaluation Framework"]
+        JUDGE["LLM Judge<br/>Claude Sonnet 4<br/>Separate model call"]
+        RUNNER["Evaluation Runner<br/>eval_questions.yaml"]
+        REPORT["Report Generator<br/>JSON + Markdown"]
+    end
+
+    subgraph RESILIENCE["Resilience Layer"]
+        CB["Circuit Breakers<br/>LLM / Qdrant / DuckDB"]
+        RETRY["Retry Policies<br/>tenacity + exp backoff"]
+        SANITIZE["Input Sanitizer<br/>SQL injection guard"]
+    end
+
+    %% Client → API
+    USER -->|HTTP POST /api/v1/query| CORS
+    USER --> TESTUI
+    USER --> SWAGGER
+    TESTUI -->|HTTP| CORS
+    SWAGGER -->|HTTP| CORS
+
+    %% Middleware chain
+    CORS --> TRACING_MW --> RATELIMIT --> LOGGING_MW --> ROUTES
+
+    %% API → Orchestrator
+    ROUTES -->|question| CLASSIFY
+
+    %% Intent routing
+    CLASSIFY -->|"route: sql"| SQL_NODE
+    CLASSIFY -->|"route: rag"| RAG_NODE
+    CLASSIFY -->|"route: hybrid"| BOTH_NODE
+    BOTH_NODE --> SQL_NODE
+    BOTH_NODE --> RAG_NODE
+
+    %% Agent nodes → sub-pipelines
+    SQL_NODE --> REWRITE
+    RAG_NODE --> HYDE
+
+    %% SQL Agent flow
+    REWRITE --> SCHEMA --> SQLGEN --> VALIDATE --> EXECUTE --> EXPLAIN
+    EXECUTE -->|"error & retries < 3"| SQLGEN
+
+    %% RAG Pipeline flow
+    HYDE --> VSEARCH --> RERANK --> ANSWER
+    VSEARCH --> BGE
+    BGE --> QDRANT
+
+    %% All paths → Synthesizer
+    SQL_NODE --> SYNTH
+    RAG_NODE --> SYNTH
+    SYNTH -->|final_answer| ROUTES
+
+    %% Data connections
+    EXECUTE --> DUCKDB
+    SCHEMA --> DUCKDB
+    RATELIMIT -.->|rate limit state| REDIS
+    ANSWER -.->|conversation memory| REDIS
+
+    %% Data ingestion
+    EXCEL -->|"pandas → ensure_loaded()"| DUCKDB
+    HANDBOOK -->|"pypdf → chunk → embed"| QDRANT
+
+    %% Observability connections
+    TRACING_MW -.-> OTEL
+    OTEL -.->|OTLP gRPC| JAEGER
+    ROUTES -.-> LANGSMITH
+    ROUTES -.-> WANDB
+
+    %% Infrastructure
+    MINIO_INIT -->|create buckets| MINIO
+
+    %% Evaluation
+    RUNNER --> JUDGE
+    JUDGE --> REPORT
+
+    %% Resilience wraps external calls
+    SQLGEN -.-> CB
+    EXECUTE -.-> CB
+    VSEARCH -.-> CB
+    SQLGEN -.-> RETRY
+    VSEARCH -.-> RETRY
+    ROUTES -.-> SANITIZE
+
+    %% Styling
+    classDef client fill:#e1f5fe,stroke:#0288d1,color:#000
+    classDef api fill:#fff3e0,stroke:#f57c00,color:#000
+    classDef orchestrator fill:#f3e5f5,stroke:#7b1fa2,color:#000
+    classDef sqlagent fill:#e8f5e9,stroke:#388e3c,color:#000
+    classDef rag fill:#fce4ec,stroke:#c62828,color:#000
+    classDef data fill:#fff9c4,stroke:#f9a825,color:#000
+    classDef infra fill:#e0f2f1,stroke:#00695c,color:#000
+    classDef observe fill:#f5f5f5,stroke:#616161,color:#000
+    classDef eval fill:#ede7f6,stroke:#4527a0,color:#000
+    classDef resilience fill:#ffebee,stroke:#b71c1c,color:#000
+
+    class USER,TESTUI,SWAGGER client
+    class CORS,TRACING_MW,RATELIMIT,LOGGING_MW,ROUTES api
+    class CLASSIFY,SQL_NODE,RAG_NODE,BOTH_NODE,SYNTH orchestrator
+    class REWRITE,SCHEMA,SQLGEN,VALIDATE,EXECUTE,EXPLAIN sqlagent
+    class HYDE,VSEARCH,RERANK,ANSWER rag
+    class DUCKDB,QDRANT,REDIS,EXCEL,HANDBOOK data
+    class BGE data
+    class MINIO,MINIO_INIT,JAEGER infra
+    class OTEL,LANGSMITH,WANDB observe
+    class JUDGE,RUNNER,REPORT eval
+    class CB,RETRY,SANITIZE resilience
+```
+
+### Orchestrator State Machine (LangGraph)
+
+```mermaid
+stateDiagram-v2
+    [*] --> Classify: question input
+
+    Classify --> SQLAgent: route = "sql"
+    Classify --> RAGAgent: route = "rag"
+    Classify --> BothAgents: route = "hybrid"
+
+    state SQLAgent {
+        [*] --> QueryRewriter
+        QueryRewriter --> SchemaLoader
+        SchemaLoader --> SQLGenerator
+        SQLGenerator --> Validator
+        Validator --> Executor
+        Executor --> Explainer: success
+        Executor --> SQLGenerator: error\n(retries < 3)
+        Explainer --> [*]
+    }
+
+    state RAGAgent {
+        [*] --> HyDE
+        HyDE --> VectorSearch
+        VectorSearch --> Reranker
+        Reranker --> AnswerGen
+        AnswerGen --> [*]
+    }
+
+    state BothAgents {
+        [*] --> RunSQL
+        RunSQL --> RunRAG
+        RunRAG --> [*]
+    }
+
+    SQLAgent --> Synthesize
+    RAGAgent --> Synthesize
+    BothAgents --> Synthesize
+
+    Synthesize --> [*]: final_answer
+```
+
+### Data Ingestion Flow
+
+```mermaid
+flowchart LR
+    subgraph Sources["Source Files"]
+        XLSX["Test Data .xlsx<br/>27,525 rows"]
+        PDF["Handbook PDF"]
+    end
+
+    subgraph Processing["Processing"]
+        PANDAS["pandas<br/>read_excel()"]
+        CLEAN["Clean & Normalize<br/>lowercase cols<br/>convert booleans"]
+        PYPDF["pypdf<br/>PdfReader()"]
+        CHUNK["RecursiveCharacterTextSplitter<br/>900 tokens / 180 overlap"]
+        EMBED["BGE-M3 Embeddings<br/>1024-dim dense + sparse"]
+    end
+
+    subgraph Storage["Storage"]
+        DUCK[("DuckDB<br/>households table<br/>+ 4 indexes<br/>+ 1 view")]
+        QDR[("Qdrant<br/>rtv_handbook<br/>cosine distance")]
+    end
+
+    subgraph Guards["Idempotency Guards"]
+        CHECK1{"households<br/>table exists?"}
+        CHECK2{"collection<br/>count > 0?"}
+    end
+
+    XLSX --> PANDAS --> CLEAN --> CHECK1
+    CHECK1 -->|No| DUCK
+    CHECK1 -->|Yes| SKIP1["Skip load"]
+
+    PDF --> PYPDF --> CHUNK --> EMBED --> CHECK2
+    CHECK2 -->|No| QDR
+    CHECK2 -->|Yes| SKIP2["Skip indexing"]
+```
+
+### Docker Service Dependency Graph
+
+```mermaid
+flowchart TB
+    subgraph Health["Health Check Gates"]
+        RH["Redis<br/>redis-cli ping<br/>interval: 5s"]
+        QH["Qdrant<br/>GET /readyz<br/>interval: 5s"]
+        MH["MinIO<br/>mc ready local<br/>interval: 5s"]
+    end
+
+    subgraph Services["Docker Compose Services"]
+        API["api<br/>Python 3.12 + FastAPI<br/>:8000"]
+        QDRANT["qdrant<br/>v1.9.7<br/>:6333 / :6334"]
+        REDIS["redis<br/>7-alpine<br/>:6379"]
+        MINIO["minio<br/>S3-compatible<br/>:9000 / :9001"]
+        MINIT["minio-init<br/>Bucket creation<br/>one-shot"]
+        JAEGER["jaeger<br/>all-in-one 1.54<br/>:16686 / :4317"]
+    end
+
+    subgraph Volumes["Named Volumes"]
+        V1["app_data<br/>DuckDB persistence"]
+        V2["qdrant_data<br/>Vector index"]
+        V3["redis_data<br/>Cache AOF"]
+        V4["minio_data<br/>Artifact storage"]
+    end
+
+    REDIS --> RH -->|healthy| API
+    QDRANT --> QH -->|healthy| API
+    MINIO --> MH -->|healthy| API
+    MINIO --> MH -->|healthy| MINIT
+
+    API --- V1
+    QDRANT --- V2
+    REDIS --- V3
+    MINIO --- V4
+
+    JAEGER ~~~ API
+```
+
+### Observability & Tracing Flow
+
+```mermaid
+flowchart LR
+    subgraph Request["Incoming Request"]
+        REQ["HTTP Request"]
+    end
+
+    subgraph Middleware["Middleware Stack"]
+        T["TracingMiddleware<br/>Creates OTel span"]
+        R["RateLimitMiddleware<br/>Token bucket check"]
+        L["RequestLoggingMiddleware<br/>structlog JSON"]
+    end
+
+    subgraph Traces["Trace Collection"]
+        OTEL["OpenTelemetry SDK"]
+        JAEGER["Jaeger :16686<br/>Trace visualization"]
+    end
+
+    subgraph Tracking["Experiment Tracking"]
+        LS["LangSmith<br/>LangChain runs<br/>I/O + latency + tokens"]
+        WB["W&B (optional)<br/>Eval metrics<br/>Result tables"]
+    end
+
+    subgraph Logs["Log Output"]
+        STRUCT["structlog<br/>JSON format<br/>Context-rich"]
+    end
+
+    REQ --> T --> R --> L
+    T -.->|spans| OTEL -->|OTLP gRPC :4317| JAEGER
+    L -.-> STRUCT
+    T -.-> LS
+    T -.-> WB
+```
+
+---
+
 ## 1. Executive Summary
 
 The RTV Multi-Agent ML System is a production-grade AI application that answers natural-language questions about Raising the Village (RTV) household survey data and agricultural best practices in Uganda. It uses two specialized AI agents — a **Text-to-SQL agent** for structured data queries and a **RAG agent** for knowledge-base retrieval — coordinated by a **LangGraph supervisor** that classifies intent and routes queries to the appropriate agent(s).
