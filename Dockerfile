@@ -13,7 +13,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Install deps first (cached unless pyproject.toml changes)
+# Install PyTorch CPU-only FIRST (200MB instead of 2.4GB CUDA)
+RUN pip install --no-cache-dir --prefix=/install \
+    torch --index-url https://download.pytorch.org/whl/cpu
+
+# Then install the rest of the deps (sentence-transformers will reuse the CPU torch)
 COPY pyproject.toml ./
 RUN pip install --no-cache-dir --prefix=/install . 2>&1 | tail -5
 
