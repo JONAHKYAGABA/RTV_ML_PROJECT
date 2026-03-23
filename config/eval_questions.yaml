@@ -1,0 +1,137 @@
+# =============================================================================
+# RTV Multi-Agent System - Evaluation Benchmark Questions
+# 11 questions + 2 hybrid demos = 13 total evaluation items
+# =============================================================================
+
+sql_questions:
+  - id: "SQL-Q1"
+    question: "What is the average predicted income for households in each district?"
+    expected_route: "sql"
+    expected_columns: ["district", "predicted_income"]
+    validation:
+      - "GROUP BY district"
+      - "AVG(predicted_income) or ROUND(AVG(predicted_income)"
+    ground_truth_note: "Kanungu highest (2.458), Kapchorwa lowest (1.306)"
+    metrics:
+      sql_correctness: 1.0
+      numeric_accuracy_tolerance: 0.005
+
+  - id: "SQL-Q2"
+    question: "Which region has the highest percentage of households predicted to meet their target?"
+    expected_route: "sql"
+    expected_columns: ["region", "prediction"]
+    validation:
+      - "GROUP BY region"
+      - "prediction"
+    ground_truth_note: "South West at 59.7%"
+    metrics:
+      sql_correctness: 1.0
+
+  - id: "SQL-Q3"
+    question: "How does crop diversity (number of different crops grown) correlate with predicted income?"
+    expected_route: "sql"
+    expected_columns: ["cassava", "maize", "ground_nuts", "irish_potatoes", "sweet_potatoes", "perennial_crops_grown_food_banana", "predicted_income"]
+    validation:
+      - "CASE WHEN or SUM of boolean columns for crop count"
+    ground_truth_note: "Positive correlation expected - more crops, higher income"
+    metrics:
+      sql_correctness: 1.0
+
+  - id: "SQL-Q4"
+    question: "What are the top 5 villages by average predicted income, and what crops do they primarily grow?"
+    expected_route: "sql"
+    expected_columns: ["village", "predicted_income", "cassava", "maize", "ground_nuts", "irish_potatoes", "sweet_potatoes", "perennial_crops_grown_food_banana"]
+    validation:
+      - "GROUP BY village"
+      - "ORDER BY"
+      - "LIMIT 5"
+    metrics:
+      sql_correctness: 1.0
+
+  - id: "SQL-Q5"
+    question: "Compare the average water consumption between households that participate in business vs those that don't."
+    expected_route: "sql"
+    expected_columns: ["business_participation", "average_water_consumed_per_day"]
+    validation:
+      - "GROUP BY business_participation"
+      - "AVG(average_water_consumed_per_day)"
+    ground_truth_note: "Water measured in JERRYCANS not liters"
+    metrics:
+      sql_correctness: 1.0
+      unit_correctness: 1.0
+
+rag_questions:
+  - id: "RAG-Q1"
+    question: "What are the recommended steps for preparing a compost pit according to the handbook?"
+    expected_route: "rag"
+    expected_section: "Composting"
+    validation:
+      - "numbered steps"
+      - "pit dimensions or depth"
+    metrics:
+      faithfulness: 0.90
+      context_precision: 0.75
+
+  - id: "RAG-Q2"
+    question: "How should a keyhole garden be constructed and maintained?"
+    expected_route: "rag"
+    expected_section: "Keyhole Garden"
+    validation:
+      - "construction steps"
+      - "compost basket mention"
+    metrics:
+      faithfulness: 0.90
+
+  - id: "RAG-Q3"
+    question: "What materials are needed to prepare liquid manure?"
+    expected_route: "rag"
+    expected_section: "Liquid Manure"
+    validation:
+      - "materials list"
+    metrics:
+      faithfulness: 0.90
+
+  - id: "RAG-Q4"
+    question: "What organic pesticide methods does the handbook recommend?"
+    expected_route: "rag"
+    expected_section: "Organic Pesticides"
+    validation:
+      - "at least one method described"
+    metrics:
+      faithfulness: 0.90
+
+  - id: "RAG-Q5"
+    question: "Describe the process for setting up a nursery bed."
+    expected_route: "rag"
+    expected_section: "Nursery Bed"
+    validation:
+      - "step-by-step process"
+    metrics:
+      faithfulness: 0.90
+
+  - id: "RAG-Q6"
+    question: "What soil and water conservation techniques are described in the handbook?"
+    expected_route: "rag"
+    expected_section: "Soil and Water Conservation"
+    validation:
+      - "multiple techniques listed"
+    metrics:
+      faithfulness: 0.90
+      context_recall: 0.85
+
+hybrid_questions:
+  - id: "HYBRID-Q1"
+    question: "In districts where Irish potato farming is most common, what soil conservation techniques from the handbook would be most relevant?"
+    expected_route: "both"
+    sql_expected: "Districts with high irish_potatoes adoption"
+    rag_expected: "Soil conservation techniques from handbook"
+    metrics:
+      hybrid_quality: 0.85
+
+  - id: "HYBRID-Q2"
+    question: "For households with low predicted income in the North region, what agricultural practices from the handbook could help improve their productivity?"
+    expected_route: "both"
+    sql_expected: "North region income statistics"
+    rag_expected: "Agricultural improvement practices"
+    metrics:
+      hybrid_quality: 0.85
