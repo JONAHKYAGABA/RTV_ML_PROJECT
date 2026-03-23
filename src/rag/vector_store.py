@@ -23,9 +23,15 @@ class VectorStore:
     def __init__(
         self,
         collection_name: str = "rtv_agriculture",
-        embedding_model: str = "all-MiniLM-L6-v2",
+        embedding_model: str | None = None,
         persist_dir: str | None = None,
     ) -> None:
+        if embedding_model is None:
+            try:
+                from config.settings import get_settings
+                embedding_model = get_settings().embedding_model
+            except Exception:
+                embedding_model = "all-MiniLM-L6-v2"
         self._collection_name = collection_name
         self._embedding_model_name = embedding_model
         self._persist_dir = persist_dir or str(CHROMA_DIR)

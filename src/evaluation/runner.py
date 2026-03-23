@@ -90,7 +90,10 @@ class EvaluationRunner:
         }
 
         all_questions = []
-        for category in ["sql_questions", "rag_questions", "hybrid_questions"]:
+        for category in [
+            "sql_questions", "rag_questions", "hybrid_questions",
+            "sql_edge_cases", "rag_edge_cases",
+        ]:
             for q in config.get(category, []):
                 q["_category"] = category
                 all_questions.append(q)

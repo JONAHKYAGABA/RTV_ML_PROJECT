@@ -12,7 +12,7 @@ build/
 .venv/
 venv/
 ENV/
-
+venv 
 # IDE
 .vscode/
 .idea/

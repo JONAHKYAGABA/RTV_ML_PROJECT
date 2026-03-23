@@ -119,6 +119,99 @@ rag_questions:
       faithfulness: 0.90
       context_recall: 0.85
 
+# --- Edge Case SQL Questions (Section 13.2) ---
+sql_edge_cases:
+  - id: "EDGE-SQL-Q1"
+    question: "What proportion of households participate in business by region?"
+    expected_route: "sql"
+    edge_case: "NULL regions - defensive COALESCE handling"
+    validation:
+      - "GROUP BY region"
+      - "business_participation"
+    thresholds:
+      faithfulness: 0.8
+
+  - id: "EDGE-SQL-Q2"
+    question: "What are the crop adoption rates across all households?"
+    expected_route: "sql"
+    edge_case: "6 crop columns need UNION ALL or UNPIVOT pattern"
+    validation:
+      - "All 6 crops in result"
+    thresholds:
+      faithfulness: 0.8
+
+  - id: "EDGE-SQL-Q3"
+    question: "What is the average number of farm implements owned per household?"
+    expected_route: "sql"
+    edge_case: "CRITICAL outlier max=30000 - must use PERCENTILE_CONT or filter"
+    validation:
+      - "PERCENTILE_CONT or WHERE farm_implements_owned <= 100"
+    thresholds:
+      faithfulness: 0.8
+
+  - id: "EDGE-SQL-Q4"
+    question: "What is the distribution of water consumption across households?"
+    expected_route: "sql"
+    edge_case: "Zero values = possible missing data, units are JERRYCANS"
+    validation:
+      - "Bucket breakdown in output"
+      - "Zero bucket separated"
+    thresholds:
+      faithfulness: 0.8
+
+  - id: "EDGE-SQL-Q5"
+    question: "Which region has the highest rate of households predicted to hit the income target?"
+    expected_route: "sql"
+    edge_case: "BOOLEAN handling - WHERE prediction = TRUE not 'true'"
+    validation:
+      - "prediction boolean syntax"
+    thresholds:
+      faithfulness: 0.8
+
+# --- Edge Case RAG Questions (Section 13.3) ---
+rag_edge_cases:
+  - id: "EDGE-RAG-Q6"
+    question: "How do I construct a compost pit step by step?"
+    expected_route: "rag"
+    edge_case: "Steps split across chunk boundary"
+    thresholds:
+      faithfulness: 0.8
+
+  - id: "EDGE-RAG-Q7"
+    question: "What are the differences between heap composting and pit composting?"
+    expected_route: "rag"
+    edge_case: "Comparison question needs BOTH sections"
+    thresholds:
+      faithfulness: 0.8
+
+  - id: "EDGE-RAG-Q8"
+    question: "How do I prepare and apply liquid manure?"
+    expected_route: "rag"
+    edge_case: "Two distinct sub-topics in one question"
+    thresholds:
+      faithfulness: 0.8
+
+  - id: "EDGE-RAG-Q9"
+    question: "What are the site criteria and structure requirements for a keyhole garden?"
+    expected_route: "rag"
+    edge_case: "Site criteria in one subsection, structure in another"
+    thresholds:
+      faithfulness: 0.8
+
+  - id: "EDGE-RAG-Q10"
+    question: "How do I set up a nursery bed and manage seedlings before transplanting?"
+    expected_route: "rag"
+    edge_case: "Pre-transplant management may be separate subsection"
+    thresholds:
+      faithfulness: 0.8
+
+  - id: "EDGE-RAG-Q11"
+    question: "What soil and water conservation techniques are recommended?"
+    expected_route: "rag"
+    edge_case: "Multiple techniques, multiple contexts - increase top-k"
+    thresholds:
+      faithfulness: 0.8
+
 hybrid_questions:
   - id: "HYBRID-Q1"
     question: "In districts where Irish potato farming is most common, what soil conservation techniques from the handbook would be most relevant?"

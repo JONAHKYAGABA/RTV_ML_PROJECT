@@ -13,9 +13,12 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from src.core.tracing import setup_tracing
 from src.core.observability import setup_langsmith
@@ -107,14 +110,29 @@ app.add_middleware(
 # Register API routes
 app.include_router(router)
 
+# Serve static HTML test page
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+
+@app.get("/test")
+async def test_page():
+    """Serve the API test dashboard."""
+    html_path = STATIC_DIR / "index.html"
+    if html_path.exists():
+        return FileResponse(str(html_path), media_type="text/html")
+    return {"error": "Test page not found"}
+
 
 # Root endpoint
 @app.get("/")
 async def root():
-    """API root -- redirect to docs."""
+    """API root -- links to docs and test page."""
     return {
         "service": "RTV Multi-Agent ML System",
         "version": "1.0.0",
         "docs": "/docs",
+        "test_ui": "/test",
         "health": "/api/v1/health",
     }

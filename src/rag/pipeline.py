@@ -3,7 +3,7 @@ RAG Pipeline for the Agriculture Handbook.
 
 Flow:
   1. Query expansion (HyDE - Hypothetical Document Embeddings)
-  2. Vector search (ChromaDB with sentence-transformers)
+  2. Vector search (Qdrant with BGE-M3 embeddings; ChromaDB fallback)
   3. Context assembly with source tracking
   4. Answer generation with hallucination guard
 """
@@ -18,18 +18,34 @@ from langchain_anthropic import ChatAnthropic
 
 from config.settings import get_settings
 from src.rag.document_loader import chunk_documents, load_handbook
-from src.rag.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
+
+
+def _create_vector_store():
+    """Create the best available vector store (Qdrant > ChromaDB)."""
+    from src.rag.qdrant_store import QdrantVectorStore
+
+    if QdrantVectorStore.is_available():
+        logger.info("Using Qdrant vector store (production)")
+        return QdrantVectorStore()
+
+    logger.info("Qdrant unavailable, falling back to ChromaDB (local)")
+    from src.rag.vector_store import VectorStore
+    return VectorStore()
 
 
 @dataclass
 class RAGPipeline:
     """End-to-end RAG pipeline for agricultural knowledge queries."""
 
-    vector_store: VectorStore = field(default_factory=VectorStore)
+    vector_store: Any = field(default=None)
     _llm: ChatAnthropic | None = field(default=None, init=False, repr=False)
     _initialized: bool = field(default=False, init=False)
+
+    def __post_init__(self):
+        if self.vector_store is None:
+            self.vector_store = _create_vector_store()
 
     @property
     def llm(self) -> ChatAnthropic:

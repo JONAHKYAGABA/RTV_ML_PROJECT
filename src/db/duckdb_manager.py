@@ -86,7 +86,38 @@ class DuckDBManager:
 
         row_count = self.conn.execute(f"SELECT COUNT(*) FROM {TABLE_NAME}").fetchone()[0]
         logger.info("Loaded %d rows into '%s'", row_count, TABLE_NAME)
+
+        # Create indexes per design doc Section 3
+        self._create_indexes()
+        # Create farm_implements_clean view per design doc
+        self._create_views()
+
         return row_count
+
+    def _create_indexes(self) -> None:
+        """Create DuckDB indexes for common query patterns (design doc Section 3)."""
+        indexes = [
+            f"CREATE INDEX IF NOT EXISTS idx_region ON {TABLE_NAME}(region)",
+            f"CREATE INDEX IF NOT EXISTS idx_district ON {TABLE_NAME}(district)",
+            f"CREATE INDEX IF NOT EXISTS idx_prediction ON {TABLE_NAME}(prediction)",
+            f"CREATE INDEX IF NOT EXISTS idx_region_pred ON {TABLE_NAME}(region, prediction)",
+        ]
+        for ddl in indexes:
+            try:
+                self.conn.execute(ddl)
+            except Exception as e:
+                logger.warning("Index creation skipped: %s", e)
+        logger.info("DuckDB indexes created")
+
+    def _create_views(self) -> None:
+        """Create analytical views (design doc Section 3)."""
+        self.conn.execute(f"""
+            CREATE OR REPLACE VIEW farm_implements_clean AS
+            SELECT *
+            FROM {TABLE_NAME}
+            WHERE farm_implements_owned <= 100
+        """)
+        logger.info("Created farm_implements_clean view (filters outliers > 100)")
 
     def is_loaded(self) -> bool:
         """Check if household data is already in the database."""
@@ -103,6 +134,9 @@ class DuckDBManager:
         """Load data if not already present. Returns row count."""
         if not self.is_loaded():
             return self.load_excel_data()
+        # Ensure indexes and views exist even if data was already loaded
+        self._create_indexes()
+        self._create_views()
         return self.conn.execute(f"SELECT COUNT(*) FROM {TABLE_NAME}").fetchone()[0]
 
     # ------------------------------------------------------------------

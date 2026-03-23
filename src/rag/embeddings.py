@@ -29,7 +29,7 @@ class EmbeddingService:
 
     def __init__(
         self,
-        model_name: str = "all-MiniLM-L6-v2",
+        model_name: str = "BAAI/bge-m3",
         device: str = "cpu",
         use_fp16: bool = False,
     ) -> None:
@@ -126,7 +126,7 @@ _embedding_service: EmbeddingService | None = None
 
 
 def get_embedding_service(
-    model_name: str = "all-MiniLM-L6-v2",
+    model_name: str = "BAAI/bge-m3",
     device: str = "cpu",
 ) -> EmbeddingService:
     """Return a singleton embedding service."""
