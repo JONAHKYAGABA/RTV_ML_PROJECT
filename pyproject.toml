@@ -22,14 +22,11 @@ dependencies = [
     # Vector Store & Embeddings
     "qdrant-client>=1.12.0",
     "sentence-transformers>=3.0.0",
-    "FlagEmbedding>=1.2.0",
-    "chromadb>=0.5.0",
 
     # RAG
     "langchain-text-splitters>=0.3.0",
     "python-docx>=1.1.0",
     "pypdf>=5.0.0",
-    "unstructured>=0.15.0",
 
     # API
     "fastapi>=0.115.0",
@@ -45,14 +42,8 @@ dependencies = [
     "openpyxl>=3.1.0",
     "numpy>=1.26.0",
 
-    # Evaluation
-    "ragas>=0.2.0",
-    "langsmith>=0.1.0",
-
-    # Experiment Tracking
-    "wandb>=0.17.0",
-
     # Observability
+    "langsmith>=0.1.0",
     "structlog>=24.4.0",
     "opentelemetry-api>=1.25.0",
     "opentelemetry-sdk>=1.25.0",
@@ -71,6 +62,21 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Heavy optional deps — lazy-imported at runtime, not needed in production Docker image
+eval = [
+    "ragas>=0.2.0",
+]
+tracking = [
+    "wandb>=0.17.0",
+]
+local = [
+    "chromadb>=0.5.0",
+    "FlagEmbedding>=1.2.0",
+    "unstructured>=0.15.0",
+]
+all = [
+    "rtv-ml-system[eval,tracking,local]",
+]
 dev = [
     "pytest>=8.3.0",
     "pytest-asyncio>=0.24.0",

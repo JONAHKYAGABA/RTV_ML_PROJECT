@@ -26,7 +26,8 @@ services:
     volumes:
       - app_data:/app/data
       - ./data:/app/seed_data:ro
-      - ./"Test Data 2026-03-17-12-43.xlsx":/app/"Test Data 2026-03-17-12-43.xlsx":ro
+      - "./Test Data 2026-03-17-12-43.xlsx:/app/Test Data 2026-03-17-12-43.xlsx:ro"
+      - "./Copy of RTV_IMP_Handbook_Compost_Keyhole_Liquid manure & Nursery bed_V3_06022026.docx.pdf:/app/Copy of RTV_IMP_Handbook_Compost_Keyhole_Liquid manure & Nursery bed_V3_06022026.docx.pdf:ro"
     depends_on:
       redis:
         condition: service_healthy
@@ -37,10 +38,10 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
-      interval: 30s
+      interval: 15s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     networks:
       - rtv-network
 
@@ -59,8 +60,8 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:6333/readyz"]
-      interval: 10s
-      timeout: 5s
+      interval: 5s
+      timeout: 3s
       retries: 5
     networks:
       - rtv-network
@@ -76,9 +77,9 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 5s
+      timeout: 3s
+      retries: 3
     networks:
       - rtv-network
 
@@ -97,9 +98,9 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 5s
+      timeout: 3s
+      retries: 3
     networks:
       - rtv-network
 

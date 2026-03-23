@@ -1,16 +1,44 @@
+# Version control
+.git/
+.github/
+
+# Python
 .venv/
 __pycache__/
 *.pyc
-.git/
-.github/
 *.egg-info/
 dist/
 build/
+
+# Tool caches
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
+.claude/
+
+# Data that gets mounted as volumes instead
 data/chroma_db/
 data/*.duckdb
 results/
+outputs/
+
+# Node (if any)
 node_modules/
-.claude/
+
+# Secrets — never bake into images
+.env
+.env.*
+
+# Large data files — mounted via docker-compose volumes, not baked in
+*.xlsx
+*.pdf
+*.docx
+
+# IDE
+.vscode/
+.idea/
+
+# Docs / misc
+*.md
+LICENSE
+docs/

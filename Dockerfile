@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     && rm -rf /var/lib/apt/lists/*
 
+# Install deps first (cached unless pyproject.toml changes)
 COPY pyproject.toml ./
 RUN pip install --no-cache-dir --prefix=/install . 2>&1 | tail -5
 
@@ -32,13 +33,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create non-root user for security
 RUN groupadd -r rtv && useradd -r -g rtv -d /app -s /sbin/nologin rtv
 
-# Application code
-COPY . .
-
-# Create required directories with proper ownership
-# Include model cache dir for HuggingFace models (BGE-M3)
-RUN mkdir -p /app/data /app/outputs /app/results /app/data/chroma_db /app/.cache \
+# Create required directories (before COPY so ownership sticks)
+RUN mkdir -p /app/data /app/outputs /app/results /app/.cache \
     && chown -R rtv:rtv /app
+
+# Pre-download embedding model at build time so startup is instant
+ENV HF_HOME=/app/.cache
+ENV TRANSFORMERS_CACHE=/app/.cache
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-m3')" \
+    && chown -R rtv:rtv /app/.cache
+
+# Application code (this layer busts cache on code changes, but deps + model are cached above)
+COPY --chown=rtv:rtv . .
 
 USER rtv
 
@@ -47,12 +53,9 @@ EXPOSE 8000
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-# HuggingFace model cache inside the container
-ENV HF_HOME=/app/.cache
-ENV TRANSFORMERS_CACHE=/app/.cache
 
-# Health check -- extended start period for model download on first boot
-HEALTHCHECK --interval=30s --timeout=10s --start-period=180s --retries=5 \
+# Health check — model is pre-downloaded, so start period can be shorter
+HEALTHCHECK --interval=30s --timeout=10s --start-period=45s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8000/api/v1/health || exit 1
 
 CMD ["python", "-m", "uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

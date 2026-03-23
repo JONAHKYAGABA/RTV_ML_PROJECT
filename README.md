@@ -1,6 +1,6 @@
 # RTV Multi-Agent ML System
 
-**Multi-Agent AI System for Raising the Village (RTV) - ML Engineer Technical Assignment**
+**Multi-Agent AI System for Raising the Village (RTV) — ML Engineer Technical Assignment**
 
 A production-grade system combining **Text-to-SQL**, **RAG (Retrieval-Augmented Generation)**, and **Multi-Agent Orchestration** to analyze household survey data and agricultural knowledge for rural development in Uganda.
 
@@ -10,28 +10,28 @@ A production-grade system combining **Text-to-SQL**, **RAG (Retrieval-Augmented 
 
 ```
 User Query
-    |
-    v
-+------------------+       +------------------+
-|   FastAPI Server  |------>|   Test Dashboard |
-|   /api/v1/*       |       |   /test          |
-+--------+---------+       +------------------+
-         |
-+--------+---------+
-|   Orchestrator    |   (LangGraph Supervisor)
-| (Intent Router)   |
-+--+-----+------+--+
-   |     |      |
-+--+--+ +--+--+ +--------+
-| SQL | | RAG | | Hybrid |
-|Agent| |Agent| | (Both) |
-+--+--+ +--+--+ +--------+
-   |       |
-+--+--+ +--+--------+-------+
-|DuckDB| | Qdrant   | BGE-M3|
-|27.5K | | Vector   | 1024d |
-|rows  | | Store    | embed |
-+------+ +----------+-------+
+    │
+    ▼
+┌──────────────────┐       ┌──────────────────┐
+│   FastAPI Server  │──────▶│   Test Dashboard │
+│   /api/v1/*       │       │   /test          │
+└────────┬─────────┘       └──────────────────┘
+         │
+┌────────┴─────────┐
+│   Orchestrator    │   (LangGraph Supervisor)
+│ (Intent Router)   │
+└──┬─────┬──────┬──┘
+   │     │      │
+┌──┴──┐ ┌┴────┐ ┌┴──────┐
+│ SQL │ │ RAG │ │Hybrid │
+│Agent│ │Agent│ │(Both) │
+└──┬──┘ └──┬──┘ └───────┘
+   │       │
+┌──┴──┐ ┌──┴────────┬───────┐
+│DuckDB│ │ Qdrant    │ BGE-M3│
+│27.5K │ │ Vector    │ 1024d │
+│rows  │ │ Store     │ embed │
+└──────┘ └───────────┴───────┘
 ```
 
 ### System Components
@@ -82,6 +82,8 @@ cp .env.example .env
 docker compose up --build -d
 ```
 
+The first build downloads and caches the BGE-M3 embedding model (~2.4 GB) into the Docker image, so subsequent starts are fast. On rebuild, only code changes trigger a new layer — dependencies and the model are cached.
+
 This starts all services:
 - **API Server**: http://localhost:8000
 - **API Docs (Swagger)**: http://localhost:8000/docs
@@ -92,7 +94,7 @@ This starts all services:
 
 ### 3. Test the System
 
-Open the **Test Dashboard** at http://localhost:8000/test to interactively test all endpoints including edge cases.
+Open the **Test Dashboard** at http://localhost:8000/test to interactively test all endpoints.
 
 Or use curl:
 
@@ -119,7 +121,7 @@ curl -X POST http://localhost:8000/api/v1/query \
 curl http://localhost:8000/api/v1/schema
 ```
 
-### 4. Run Tests in Docker
+### 4. Run Tests
 
 ```bash
 # Unit tests
@@ -156,15 +158,45 @@ python -m venv .venv
 source .venv/bin/activate       # Linux/Mac
 # .venv\Scripts\activate        # Windows
 
-pip install -e ".[dev,analysis]"
+# Core deps only (fast install)
+pip install -e ".[dev]"
+
+# Full local install (includes ChromaDB fallback, W&B, FlagEmbedding)
+pip install -e ".[all,dev]"
 
 cp .env.example .env
-# Set ANTHROPIC_API_KEY, and update hosts to localhost (QDRANT_HOST=localhost, REDIS_HOST=localhost)
+# Set ANTHROPIC_API_KEY; update hosts to localhost (QDRANT_HOST=localhost, REDIS_HOST=localhost)
 
 python -m uvicorn src.api.app:app --reload --port 8000
 ```
 
-Note: Without Docker, Qdrant/Redis/MinIO/Jaeger won't be available. The system falls back to ChromaDB for vector storage.
+Without Docker, Qdrant/Redis/MinIO/Jaeger won't be available. The system falls back to ChromaDB for vector storage (requires the `local` optional dependency group).
+
+### Optional Dependency Groups
+
+| Group | Packages | When needed |
+|-------|----------|-------------|
+| `dev` | pytest, ruff, mypy | Development and testing |
+| `local` | chromadb, FlagEmbedding, unstructured | Local dev without Docker services |
+| `eval` | ragas | Evaluation benchmarks |
+| `tracking` | wandb | Weights & Biases experiment tracking |
+| `analysis` | matplotlib, seaborn, scipy | Data analysis and visualization |
+| `all` | All optional groups above | Full local setup |
+
+---
+
+## Data Loading
+
+Both datasets load **automatically** on app startup via the FastAPI lifespan handler:
+
+1. **Household data** (`Test Data 2026-03-17-12-43.xlsx`) is loaded into DuckDB via `ensure_loaded()` — skips if the table already exists.
+2. **Agriculture Handbook** (PDF/DOCX) is chunked, embedded with BGE-M3, and stored in Qdrant — skips if the collection already has documents.
+
+You can also run setup manually:
+
+```bash
+python scripts/setup.py
+```
 
 ---
 
@@ -192,6 +224,7 @@ RTV_ML_PROJECT/
 |-- config/
 |   |-- settings.py              # Pydantic settings (env-based config)
 |   |-- eval_questions.yaml      # Benchmark evaluation questions
+|   |-- prompts.yaml             # Prompt templates
 |-- src/
 |   |-- agents/
 |   |   |-- sql_agent.py         # Text-to-SQL LangGraph agent (6-node)
@@ -203,10 +236,12 @@ RTV_ML_PROJECT/
 |   |   |-- middleware.py         # Tracing, rate limiting, logging
 |   |   |-- static/index.html    # Interactive test dashboard
 |   |-- core/
-|   |   |-- tracing.py           # OpenTelemetry setup + @traceable
+|   |   |-- tracing.py           # OpenTelemetry setup
 |   |   |-- circuit_breaker.py   # Circuit breakers for LLM/DB/Vector
 |   |   |-- rate_limiter.py      # Token bucket + Redis rate limiting
 |   |   |-- observability.py     # LangSmith + W&B integration
+|   |   |-- sanitizer.py         # Input sanitization
+|   |   |-- retry.py             # Retry policies
 |   |-- db/
 |   |   |-- duckdb_manager.py    # DuckDB operations + indexes + views
 |   |   |-- schema_context.py    # Schema DDL + column descriptions + few-shot examples
@@ -214,8 +249,12 @@ RTV_ML_PROJECT/
 |   |-- evaluation/
 |   |   |-- judge.py             # LLM-as-Judge (4 metrics)
 |   |   |-- runner.py            # Full evaluation harness
+|   |   |-- metrics.py           # Metric definitions
+|   |   |-- report.py            # Report generation
 |   |-- orchestrator/
 |   |   |-- router.py            # Multi-agent LangGraph routing
+|   |   |-- memory.py            # Conversation memory
+|   |   |-- state.py             # State definitions
 |   |-- rag/
 |   |   |-- document_loader.py   # Handbook ingestion + section-aware chunking
 |   |   |-- pipeline.py          # End-to-end RAG pipeline (HyDE + retrieve + generate)
@@ -227,13 +266,17 @@ RTV_ML_PROJECT/
 |   |-- analysis/
 |       |-- data_analysis.py     # Comprehensive EDA
 |-- tests/
-|   |-- unit/                    # Unit tests (DuckDB, vector store, etc.)
+|   |-- unit/                    # Unit tests (DuckDB, vector store, document loader)
 |   |-- integration/             # API integration tests
-|-- results/                     # Evaluation reports (JSON + Markdown)
-|-- data/                        # DuckDB database files
+|-- scripts/
+|   |-- setup.py                 # Manual data setup script
+|   |-- run_evaluation.py        # Evaluation runner script
+|-- docs/
+|   |-- SYSTEM_ARCHITECTURE.md   # Detailed architecture report
+|-- data/                        # DuckDB database files (auto-created)
 |-- .env.example                 # Environment variable template
 |-- docker-compose.yml           # Full stack: API + Qdrant + Redis + MinIO + Jaeger
-|-- Dockerfile                   # Multi-stage production build
+|-- Dockerfile                   # Multi-stage production build (model pre-cached)
 |-- pyproject.toml               # Dependencies and build config
 ```
 
