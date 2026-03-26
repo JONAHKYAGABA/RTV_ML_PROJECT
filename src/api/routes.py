@@ -136,12 +136,23 @@ async def unified_query(request: QueryRequest):
     result = orch.query(question)
     latency = (time.time() - start) * 1000
 
+    # Build enriched metadata with query_result/context for evaluation
+    metadata = result.get("metadata", {})
+    sql_result = result.get("sql_result") or {}
+    rag_result = result.get("rag_result") or {}
+
+    if sql_result.get("result"):
+        metadata["query_result"] = sql_result["result"]
+    if rag_result.get("context"):
+        metadata["context"] = rag_result["context"]
+
     response = QueryResponse(
         question=result["question"],
         answer=result["answer"],
         route=result["route"],
         sql=result.get("metadata", {}).get("sql_query"),
-        metadata=result.get("metadata", {}),
+        sources=rag_result.get("sources", []),
+        metadata=metadata,
         latency_ms=round(latency, 1),
         trace_id=trace_id_var.get(""),
     )
@@ -197,7 +208,10 @@ async def sql_query(request: QueryRequest):
         answer=result["explanation"],
         route="sql",
         sql=result["sql"],
-        metadata={"retries": result["retries"]},
+        metadata={
+            "retries": result["retries"],
+            "query_result": result.get("result", {}),
+        },
         latency_ms=round(latency, 1),
         trace_id=trace_id_var.get(""),
     )
@@ -218,7 +232,11 @@ async def rag_query(request: QueryRequest):
         question=result["question"],
         answer=result["answer"],
         route="rag",
-        metadata={"source_count": result["source_count"]},
+        sources=result.get("sources", []),
+        metadata={
+            "source_count": result["source_count"],
+            "context": result.get("context", ""),
+        },
         latency_ms=round(latency, 1),
         trace_id=trace_id_var.get(""),
     )
@@ -262,11 +280,22 @@ async def evaluate_response(request: EvaluateRequest):
                 explanation=request.answer,
             )
         else:
+            context_text = request.context or ""
+            # Build proper context chunks list
+            if request.context_chunks:
+                context_chunks = request.context_chunks
+            elif context_text:
+                # Split context into chunks by separator if present
+                parts = context_text.split("\n\n---\n\n")
+                context_chunks = [{"text": p.strip()} for p in parts if p.strip()]
+            else:
+                context_chunks = [{"text": ""}]
+
             evals = jdg.evaluate_rag_response(
                 question=request.question,
                 answer=request.answer,
-                context=request.context or "",
-                context_chunks=[{"text": request.context or ""}],
+                context=context_text,
+                context_chunks=context_chunks,
             )
 
         results = {

@@ -47,6 +47,7 @@ class EvaluateRequest(BaseModel):
     question: str
     answer: str
     context: str | None = None
+    context_chunks: list[dict[str, Any]] | None = None
     sql: str | None = None
     query_result: dict[str, Any] | None = None
     eval_type: str = Field(

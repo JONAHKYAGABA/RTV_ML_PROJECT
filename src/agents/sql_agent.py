@@ -178,6 +178,8 @@ RULES:
 7. All column names are lowercase.
 8. For percentage calculations, use ROUND(COUNT(*) FILTER (WHERE condition) * 100.0 / COUNT(*), 2)
 9. LIMIT results to 50 rows max unless counting/aggregating.
+10. For CORR() or correlation analysis, compute CORR() over ALL rows (not per-group, which returns NaN). Show overall correlation alongside a per-group breakdown.
+11. Crop diversity = sum of boolean crop columns (cassava, maize, ground_nuts, irish_potatoes, sweet_potatoes, perennial_crops_grown_food_banana).
 
 Return ONLY the SQL query, no explanation. Do not wrap in markdown code blocks.
 SQL:"""

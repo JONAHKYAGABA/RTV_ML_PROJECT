@@ -193,12 +193,15 @@ CONTEXT:
 QUESTION: {question}
 
 RULES:
-1. Answer based ONLY on the provided context. Do not use external knowledge.
+1. Answer based STRICTLY and ONLY on the provided context. Every claim must be
+   directly supported by text in the context above. Do NOT add any information
+   from your own knowledge, even if you know it to be true.
 2. If the context doesn't contain enough information, say "The handbook does not
    explicitly address this topic" and explain what related information is available.
-3. Cite specific sources using [Source N] references.
+3. Cite specific sources using [Source N] references for each key point.
 4. Be practical and actionable - these answers help field workers.
 5. Keep the answer concise but complete (under 300 words).
+6. Do NOT paraphrase loosely - stay close to the original wording in the context.
 
 ANSWER:"""
         

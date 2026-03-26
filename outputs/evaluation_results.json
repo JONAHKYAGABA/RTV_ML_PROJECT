@@ -1,0 +1,133 @@
+{
+  "sql_questions": [
+    {
+      "question": "What is the average predicted income for households in each district?",
+      "sql": "SELECT district,\n       ROUND(AVG(predicted_income), 3) AS avg_predicted_income\nFROM households\nGROUP BY district\nORDER BY avg_predicted_income DESC\nLIMIT 50;",
+      "answer": "The query results provide the average predicted income for households across various districts, ranked from highest to lowest. The district of Kanungu has the highest average predicted income at 2.458, followed by Rubirizi at 2.236, and Kitagwenda at 2.166. These figures represent the predicted income combined with production value, indicating the economic potential of households in these areas.\n\nThe data shows that districts like Kanungu and Rubirizi are expected to have higher economic outcomes compared to others like Nwoya and Amuru, which have lower averages of 1.566 and 1.553, respectively. This suggests a disparity in economic potential across districts, which could be due to various factors such as resource availability, infrastructure, or local economic activities.\n\nOverall, the results highlight the top 22 districts with the highest average predicted incomes, providing insights into where households are likely to meet or exceed their income targets. This information can be useful for targeting economic development initiatives or resource allocation to support lower-income districts.",
+      "latency_ms": 5742.2,
+      "scores": {
+        "relevancy": 1.0,
+        "sql_correctness": 0.7
+      },
+      "overall_pass": true
+    },
+    {
+      "question": "Which region has the highest percentage of households predicted to meet their target?",
+      "sql": "SELECT region,\n       COUNT(*) AS total,\n       SUM(CASE WHEN prediction THEN 1 ELSE 0 END) AS predicted_hit,\n       ROUND(SUM(CASE WHEN prediction THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS success_pct\nFROM households\nGROUP BY region\nORDER BY success_pct DESC;",
+      "answer": "The data analysis reveals that the South West region has the highest percentage of households predicted to meet their income target, with a success rate of 59.72%. This means that out of 14,179 households in the South West, 8,467 are expected to achieve their income goals. Following the South West, the Mid West region has a success rate of 54.36%, with 3,607 out of 6,635 households predicted to meet their targets. The Central region comes next with a 51.06% success rate, while the North and East regions have lower success rates of 43.56% and 29.24%, respectively.\n\nThese results suggest that households in the South West are more likely to achieve their income targets compared to other regions. This could be due to various factors such as economic conditions, resource availability, or effective local policies. The significant drop in success rates from the South West to the East indicates potential areas for improvement in the latter regions. Understanding the underlying reasons for these differences could help in formulating strategies to support households in regions with lower success rates.",
+      "latency_ms": 7087.4,
+      "scores": {
+        "relevancy": 1.0,
+        "sql_correctness": 1.0
+      },
+      "overall_pass": true
+    },
+    {
+      "question": "How does crop diversity (number of different crops grown) correlate with predicted income?",
+      "sql": "SELECT \n    num_crops,\n    ROUND(CORR(num_crops, predicted_income), 3) AS correlation\nFROM (\n    SELECT \n        household_id,\n        (CAST(cassava AS INTEGER) + \n         CAST(maize AS INTEGER) + \n         CAST(ground_nuts AS INTEGER) + \n         CAST(irish_potatoes AS INTEGER) + \n         CAST(sweet_potatoes AS INTEGER) + \n         CAST(perennial_crops_grown_food_banana AS INTEGER)) AS num_crops,\n        predicted_income\n    FROM households\n) AS subquery\nGROUP BY num_crops\nLIMIT 50;",
+      "answer": "The query aimed to determine the correlation between crop diversity (the number of different crops grown) and predicted income for households. However, the results show \"nan\" (not a number) for all levels of crop diversity, indicating that the correlation could not be calculated. This typically occurs when there is insufficient variation in the data or when the data contains missing or invalid values.\n\nIn this case, the lack of correlation values suggests that the dataset might have issues such as missing predicted income values or a lack of diversity in the number of crops grown across households. Without a valid correlation coefficient, we cannot draw any conclusions about the relationship between crop diversity and predicted income.\n\nTo gain insights, we may need to investigate the data quality, ensure all necessary data is present, and possibly explore other statistical methods or data transformations. Additionally, understanding the context of water consumption and income prediction might provide further avenues for analysis, but these aspects were not directly addressed in the current query results.",
+      "latency_ms": 8451.0,
+      "scores": {
+        "relevancy": 0.7,
+        "sql_correctness": 0.5
+      },
+      "overall_pass": false
+    },
+    {
+      "question": "What are the top 5 villages by average predicted income, and what crops do they primarily grow?",
+      "sql": "SELECT \n    village,\n    ROUND(AVG(predicted_income), 3) AS avg_predicted_income,\n    STRING_AGG(\n        CASE \n            WHEN cassava THEN 'cassava'\n            WHEN maize THEN 'maize'\n            WHEN ground_nuts THEN 'ground_nuts'\n            WHEN irish_potatoes THEN 'irish_potatoes'\n            WHEN sweet_potatoes THEN 'sweet_potatoes'\n            WHEN perennial_crops_grown_food_banana THEN 'food_banana'\n        END, ', '\n    ) AS primary_crops\nFROM \n    households\nGROUP BY \n    village\nORDER BY \n    avg_predicted_income DESC\nLIMIT 5;",
+      "answer": "The analysis identifies the top five villages with the highest average predicted income, along with the primary crops they grow. The village of Kagashe leads with an average predicted income of 3.164, primarily cultivating cassava and some maize. Nyaruhanga_Burema follows closely with an average income of 3.159, but no specific primary crops were identified. Kanyungusi, with an average income of 3.148, grows a mix of ground nuts, cassava, food banana, and maize. Mitsibika_B has an average income of 3.142 and a diverse crop profile, including cassava, ground nuts, food banana, and maize. Lastly, Buhisi has an average income of 3.113, but like Nyaruhanga_Burema, no primary crops were specified.\n\nA notable pattern is the prevalence of cassava across most villages, indicating its importance in these communities. The absence of identified primary crops in some villages suggests either a lack of dominant crop or data limitations. These insights can guide agricultural support and resource allocation to enhance income predictability and crop diversity.",
+      "latency_ms": 8845.4,
+      "scores": {
+        "relevancy": 1.0,
+        "sql_correctness": 0.5
+      },
+      "overall_pass": false
+    },
+    {
+      "question": "Compare the average water consumption between households that participate in business vs those that don't.",
+      "sql": "SELECT \n    business_participation,\n    ROUND(AVG(CASE WHEN average_water_consumed_per_day > 0 THEN average_water_consumed_per_day END), 2) AS avg_water_consumption\nFROM \n    households\nGROUP BY \n    business_participation;",
+      "answer": "The analysis compares the average daily water consumption between households that participate in business activities and those that do not. The results show that households involved in business activities consume slightly more water on average, with an average consumption of 3.71 jerrycans per day (approximately 74.2 liters). In contrast, households not participating in business activities consume an average of 3.51 jerrycans per day (approximately 70.2 liters).\n\nThis difference suggests that business-participating households might have higher water needs, possibly due to additional activities related to their business operations. The increase in water consumption could be linked to higher predicted income and production value, as these households might engage in activities that require more water, such as small-scale production or services.\n\nOverall, while the difference in water consumption is not large, it indicates a trend where business involvement correlates with slightly higher water usage. This insight could be useful for planning water resource management and understanding the needs of different household segments.",
+      "latency_ms": 11793.4,
+      "scores": {
+        "relevancy": 1.0,
+        "sql_correctness": 1.0
+      },
+      "overall_pass": true
+    }
+  ],
+  "rag_questions": [
+    {
+      "question": "What are the recommended steps for preparing a compost pit according to the handbook?",
+      "answer": "The recommended steps for preparing a compost pit according to the handbook are as follows:\n\n1. **Select the Location**: Choose a gently sloping area to prevent water stagnation, which can cause nutrient loss. Align the pits along the slope to prevent surface runoff from filling them, disrupting decomposition and leaching nutrients. Place the pits close to your home for easy access when filling with kitchen scraps and other organic materials. Ensure the pits are away from children and animals, or fence them off for safety [Source 3].\n\n2. **Dig the Pit**: Depending on your needs, you can choose from three types of pits:\n   - Rectangular pits: 6 feet by 3 feet and 3 feet deep\n   - Circular pits: 5 feet wide and 3 feet deep\n   - Square pits: 4 feet by 4 feet and 3 feet deep [Source 1].\n\n3. **Prepare the Pit Walls**: If the pit walls are not stable, shape them in a \u201cV\u201d form (slanted) rather than straight down to prevent collapsing [Source 5].\n\n4. **Fill the Pit**: Gather organic materials near the pit and fill it all at once rather than adding materials little by little. This helps retain nutrients longer. Use only organic materials, avoiding non-organic items like plastic [Source 5].\n\n5. **Cover the Pit**: Cover the compost pit with soil to retain heat, which accelerates decomposition better than using leaves [Source 5].\n\n6. **Monitor the Composting Process**: Regularly check the temperature and moisture levels during decomposition to ensure the process is proceeding correctly [Source 5].\n\nThese steps will help ensure efficient composting and nutrient retention in the compost pit.",
+      "source_count": 5,
+      "latency_ms": 10576.8,
+      "scores": {
+        "faithfulness": 0.5,
+        "relevancy": 1.0,
+        "context_precision": 0.8
+      },
+      "overall_pass": false
+    },
+    {
+      "question": "How should a keyhole garden be constructed and maintained?",
+      "answer": "To construct and maintain a keyhole garden, follow these steps:\n\n**Construction:**\n\n1. **Site Selection:** Choose a fertile area on a gentle slope near the household, avoiding places with a history of soil-borne diseases and large trees, as their roots can interfere with the garden [Source 1, Source 5].\n\n2. **Clear and Level the Area:** Ensure the area is free from significant elevation changes [Source 1].\n\n3. **Mark the Garden\u2019s Footprint:** Use a stake and string to outline a circle with a radius of 3-4 feet [Source 1].\n\n4. **Plough the Area:** Perform deep tillage to create a deep rooting zone for vegetables, incorporating compost or animal manure [Source 1].\n\n5. **Build the Compost Basket:** Construct a central compost basket using sticks, about 3 feet tall and 1.5 feet wide [Source 1].\n\n6. **Layer Organic Materials:** Build the garden using layered organic materials, which will decompose and provide nutrients [Source 4].\n\n**Maintenance:**\n\n1. **Fill the Compost Well:** Keep the compost well filled to the level of the bed. Water the garden by pouring water through the compost well, allowing nutrients to seep into the soil [Source 2].\n\n2. **Moisture Retention:** Use dry grass or plant materials to mulch around seedlings, especially in dry conditions, to retain moisture and protect young plants [Source 5].\n\n3. **Regular Monitoring:** Inspect the garden regularly to maintain hygiene, monitor plant health, and address any issues promptly [Source 5].\n\n4. **Pest Control:** Plant onions near the perimeter to repel defoliating insects and other pests [Source 2].\n\nBy following these steps, a keyhole garden can provide essential nutrients and moisture retention, supporting healthy plant growth and reducing maintenance efforts [Source 3].",
+      "source_count": 5,
+      "latency_ms": 9583.5,
+      "scores": {
+        "faithfulness": 0.7,
+        "relevancy": 1.0,
+        "context_precision": 0.8
+      },
+      "overall_pass": true
+    },
+    {
+      "question": "What materials are needed to prepare liquid manure?",
+      "answer": "To prepare liquid manure, the following materials are needed:\n\n1. **Feedstock Materials**: \n   - Hedge cuttings\n   - Livestock or human urine (stored in a closed container for 10 days)\n   - Animal dung/slurry\n   - Leguminous trees (e.g., Tithonia, Acacia tephrosia, Bitter leaf)\n   - Banana pseudo stem\n   - Wood ash [Source 2]\n\n2. **Water**: \n   - Use rainwater instead of tap water. If tap water is used, it should be left to air out for 2 days and stirred regularly to help the chlorine evaporate. [Source 2]\n\n3. **Equipment**:\n   - 240 litres plastic drum\n   - Sack\n   - String/sisal rope\n   - Jerry can\n   - Strong stick [Source 2]\n\nThe preparation process involves chopping fresh leaves of Tithonia and leguminous plant materials thoroughly to increase the surface area for decomposition. Pseudostems can also be added to boost potassium nutrient composition. These should be chopped to 1 cm. The feedstock and water should be mixed in a 1:3 ratio. Sprinkle two handfuls of ash into the sack to neutralize acidity and provide phosphorus. After 14 days, the water will turn black, indicating that the nutrients have been extracted into the liquid. The liquid should then be diluted with clean water in a 1:2 ratio before use. [Source 3]",
+      "source_count": 5,
+      "latency_ms": 6842.8,
+      "scores": {
+        "faithfulness": 1.0,
+        "relevancy": 1.0,
+        "context_precision": 0.6
+      },
+      "overall_pass": false
+    },
+    {
+      "question": "What organic pesticide methods does the handbook recommend?",
+      "error": "HTTP Error 500: Internal Server Error"
+    },
+    {
+      "question": "Describe the process for setting up a nursery bed.",
+      "error": "HTTP Error 500: Internal Server Error"
+    },
+    {
+      "question": "What soil and water conservation techniques are described in the handbook?",
+      "error": "HTTP Error 500: Internal Server Error"
+    }
+  ],
+  "hybrid_questions": [
+    {
+      "question": "In districts where Irish potato farming is most common, what soil conservation techniques from the handbook would be most relevant?",
+      "error": "HTTP Error 500: Internal Server Error"
+    },
+    {
+      "question": "For households with low predicted income in the North region, what agricultural practices from the handbook could help improve their productivity?",
+      "error": "HTTP Error 500: Internal Server Error"
+    }
+  ],
+  "summary": {
+    "sql_avg_scores": {
+      "relevancy": 0.94,
+      "sql_correctness": 0.74
+    },
+    "rag_avg_scores": {
+      "faithfulness": 0.733,
+      "relevancy": 1.0,
+      "context_precision": 0.733
+    },
+    "total_questions": 13,
+    "passed": 4,
+    "failed": 9
+  }
+}

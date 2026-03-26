@@ -143,11 +143,13 @@ class QdrantVectorStore:
         query_embedding = self.embedding_service.embed_query(query)
 
         try:
-            results = self.client.search(
+            from qdrant_client.models import models
+            response = self.client.query_points(
                 collection_name=self._collection_name,
-                query_vector=query_embedding.tolist(),
+                query=query_embedding.tolist(),
                 limit=top_k,
             )
+            results = response.points
         except Exception as e:
             logger.error("Qdrant search failed: %s", e)
             return []

@@ -187,6 +187,36 @@ FEW_SHOT_EXAMPLES = [
         """,
     },
     {
+        "question": "How does crop diversity correlate with predicted income?",
+        "sql": """
+            WITH crop_diversity AS (
+                SELECT
+                    (CASE WHEN cassava THEN 1 ELSE 0 END +
+                     CASE WHEN maize THEN 1 ELSE 0 END +
+                     CASE WHEN ground_nuts THEN 1 ELSE 0 END +
+                     CASE WHEN irish_potatoes THEN 1 ELSE 0 END +
+                     CASE WHEN sweet_potatoes THEN 1 ELSE 0 END +
+                     CASE WHEN perennial_crops_grown_food_banana THEN 1 ELSE 0 END
+                    ) AS num_crops,
+                    predicted_income
+                FROM households
+            ),
+            overall AS (
+                SELECT ROUND(CORR(num_crops, predicted_income), 4) AS correlation
+                FROM crop_diversity
+            )
+            SELECT
+                o.correlation AS overall_correlation,
+                cd.num_crops AS crop_count,
+                COUNT(*) AS households,
+                ROUND(AVG(cd.predicted_income), 3) AS avg_income
+            FROM crop_diversity cd
+            CROSS JOIN overall o
+            GROUP BY cd.num_crops, o.correlation
+            ORDER BY cd.num_crops
+        """,
+    },
+    {
         "question": "Top 5 villages by average predicted income with crop info",
         "sql": """
             SELECT village,

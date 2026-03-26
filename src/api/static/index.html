@@ -164,7 +164,7 @@
 </div>
 
 <script>
-const BASE = location.origin;
+const BASE = (location.origin && location.origin.startsWith('http')) ? location.origin : 'http://localhost:8000';
 
 // Auto-generate session ID (no manual input needed)
 let SESSION_ID = crypto.randomUUID ? crypto.randomUUID() : 'sess-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
@@ -259,13 +259,34 @@ function renderResult(targetId, data, elapsed) {
     html += `<div class="result-body">`;
     if (data.sql) html += `<div class="sql-box">${escHtml(data.sql)}</div>`;
     html += `<div class="answer-text">${escHtml(data.answer)}</div>`;
-    if (data.evaluation && typeof data.evaluation === 'object' && !data.evaluation.error) {
+    if (data.evaluation && typeof data.evaluation === 'object') {
         html += `<hr style="border-color:#334155; margin:12px 0;">`;
-        html += `<div style="font-size:0.85rem; color:#94a3b8; font-weight:600; margin-bottom:6px;">LLM-as-Judge Scores</div>`;
-        for (const [k, v] of Object.entries(data.evaluation)) {
-            const s = v.score ?? 0;
-            html += `<div style="margin:4px 0;"><span style="color:#e2e8f0;">${k}:</span> <span class="score-bar"><span class="score-track"><span class="score-fill" style="width:${s*100}%"></span></span> ${(s*100).toFixed(0)}%</span></div>`;
+        html += `<div style="background:#1a2332; border:1px solid #3b82f6; border-radius:8px; padding:14px; margin-top:8px;">`;
+        html += `<div style="font-size:0.95rem; color:#3b82f6; font-weight:700; margin-bottom:10px;">LLM-as-Judge Evaluation</div>`;
+        if (data.evaluation.error) {
+            html += `<div style="color:#fca5a5;">Error: ${escHtml(String(data.evaluation.error))}</div>`;
+        } else {
+            for (const [k, v] of Object.entries(data.evaluation)) {
+                const score = (typeof v === 'object' && v !== null) ? (v.score ?? 0) : 0;
+                const pct = Math.round(score * 100);
+                const color = pct >= 70 ? '#22c55e' : pct >= 40 ? '#eab308' : '#ef4444';
+                let reasoning = '';
+                if (typeof v === 'object' && v !== null && v.reasoning) {
+                    reasoning = String(v.reasoning).replace(/```json/g,'').replace(/```/g,'').replace(/[{}"\\]/g,'').replace(/score:\s*[\d.]+,?/gi,'').replace(/reasoning:\s*/gi,'').trim();
+                    if (reasoning.length > 200) reasoning = reasoning.substring(0, 200) + '...';
+                }
+                html += `<div style="margin:8px 0; padding:6px 0; border-bottom:1px solid #334155;">`;
+                html += `<div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">`;
+                html += `<span style="color:#e2e8f0; font-weight:600; min-width:140px; text-transform:capitalize;">${escHtml(k.replace(/_/g,' '))}:</span>`;
+                html += `<span style="background:#334155; border-radius:4px; width:120px; height:10px; display:inline-block; overflow:hidden;">`;
+                html += `<span style="display:block; height:100%; width:${pct}%; background:${color}; border-radius:4px;"></span></span>`;
+                html += `<span style="color:${color}; font-weight:700; font-size:0.9rem;">${pct}%</span>`;
+                html += `</div>`;
+                if (reasoning) html += `<div style="font-size:0.78rem; color:#94a3b8; padding-left:4px;">${escHtml(reasoning)}</div>`;
+                html += `</div>`;
+            }
         }
+        html += `</div>`;
     }
     html += `</div></div>`;
     el.innerHTML = html;
@@ -284,10 +305,28 @@ async function askQuestion() {
 
     const path = route === 'sql' ? '/api/v1/sql/query' : route === 'rag' ? '/api/v1/rag/query' : '/api/v1/query';
     const body = { question: q, session_id: SESSION_ID };
-    if (evalOn && route === 'auto') body.evaluate = true;
     const t0 = Date.now();
     try {
         const { data } = await api('POST', path, body);
+        // Always call /api/v1/evaluate separately when judge is enabled
+        if (evalOn && data.answer) {
+            btn.innerHTML = '<span class="spinner"></span> Evaluating...';
+            document.getElementById('mainResult').innerHTML = '<div class="result-panel"><div class="result-body loading"><span class="spinner"></span>&nbsp;Running LLM-as-Judge...</div></div>';
+            try {
+                const evalType = (data.route === 'sql' || route === 'sql') ? 'sql' : 'rag';
+                const evalBody = { question: q, answer: data.answer, eval_type: evalType };
+                if (data.sql) evalBody.sql = data.sql;
+                if (data.metadata && data.metadata.query_result) evalBody.query_result = data.metadata.query_result;
+                if (data.metadata && data.metadata.context) evalBody.context = data.metadata.context;
+                if (data.sources && data.sources.length) evalBody.context_chunks = data.sources;
+                const evalResp = await api('POST', '/api/v1/evaluate', evalBody);
+                if (evalResp.data && evalResp.data.evaluations) {
+                    data.evaluation = evalResp.data.evaluations;
+                }
+            } catch (evalErr) {
+                data.evaluation = { error: evalErr.message };
+            }
+        }
         renderResult('mainResult', data, Date.now() - t0);
     } catch (e) {
         document.getElementById('mainResult').innerHTML = `<div class="result-panel"><div class="result-body" style="color:#fca5a5;">Error: ${e.message}</div></div>`;

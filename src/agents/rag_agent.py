@@ -41,11 +41,12 @@ class RAGAgent:
             "answer": result["answer"],
             "sources": [
                 {
-                    "text": s["text"][:200] + "..." if len(s["text"]) > 200 else s["text"],
+                    "text": s["text"],
                     "metadata": s["metadata"],
                     "score": s.get("score", 0),
                 }
                 for s in result["sources"]
             ],
             "source_count": len(result["sources"]),
+            "context": result.get("context", ""),
         }

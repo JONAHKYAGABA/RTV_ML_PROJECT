@@ -74,7 +74,7 @@ class Settings(BaseSettings):
     # --- RAG ---
     chunk_size: int = 900
     chunk_overlap: int = 180
-    top_k: int = 5
+    top_k: int = 8
     rerank_top_k: int = 3
 
     @property
