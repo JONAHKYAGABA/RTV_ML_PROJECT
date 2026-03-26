@@ -51,14 +51,14 @@ class HyDEExpander:
     def _get_llm(self):
         """Lazy-load LLM if not provided."""
         if self._llm is None:
-            from langchain_anthropic import ChatAnthropic
+            from langchain_openai import ChatOpenAI
 
             settings = get_settings()
-            self._llm = ChatAnthropic(
+            self._llm = ChatOpenAI(
                 model=settings.llm_model,
                 temperature=0.1,
                 max_tokens=300,
-                api_key=settings.anthropic_api_key,
+                api_key=settings.openai_api_key,
             )
         return self._llm
 

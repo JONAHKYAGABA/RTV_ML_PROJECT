@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from typing import Any, TypedDict
 
 import sqlglot
-from langchain_anthropic import ChatAnthropic
+from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
 
 from config.settings import get_settings
@@ -62,18 +62,18 @@ class SQLAgent:
     """LangGraph-based Text-to-SQL agent for household data queries."""
 
     db: DuckDBManager = field(default_factory=DuckDBManager)
-    _llm: ChatAnthropic | None = field(default=None, init=False, repr=False)
+    _llm: ChatOpenAI | None = field(default=None, init=False, repr=False)
     _graph: Any = field(default=None, init=False, repr=False)
 
     @property
-    def llm(self) -> ChatAnthropic:
+    def llm(self) -> ChatOpenAI:
         if self._llm is None:
             settings = get_settings()
-            self._llm = ChatAnthropic(
+            self._llm = ChatOpenAI(
                 model=settings.llm_model,
                 temperature=settings.llm_temperature,
                 max_tokens=settings.llm_max_tokens,
-                anthropic_api_key=settings.anthropic_api_key,
+                api_key=settings.openai_api_key,
             )
         return self._llm
 

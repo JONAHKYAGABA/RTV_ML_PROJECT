@@ -13,6 +13,7 @@ dependencies = [
     # LLM & Agent Framework
     "langchain>=0.3.0",
     "langchain-anthropic>=0.3.0",
+    "langchain-openai>=0.3.0",
     "langchain-community>=0.3.0",
     "langgraph>=0.2.0",
 

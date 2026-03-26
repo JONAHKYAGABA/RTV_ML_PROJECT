@@ -14,20 +14,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PyTorch CPU-only FIRST (200MB instead of 2.4GB CUDA)
-RUN pip install --no-cache-dir --prefix=/install \
+RUN pip install --no-cache-dir \
     torch --index-url https://download.pytorch.org/whl/cpu
 
-# Then install the rest of the deps (sentence-transformers will reuse the CPU torch)
+# Then install the rest of the deps (pip sees CPU torch already installed, skips it)
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir --prefix=/install . 2>&1 | tail -5
+RUN mkdir -p src && touch src/__init__.py \
+    && pip install --no-cache-dir . 2>&1 | tail -20
 
 # Stage 2: Production image
 FROM python:3.12-slim AS production
 
 WORKDIR /app
 
-# Copy installed packages from builder
-COPY --from=builder /install /usr/local
+# Copy installed packages from builder (system site-packages, not --prefix)
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # System dependencies for runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -44,7 +46,8 @@ RUN mkdir -p /app/data /app/outputs /app/results /app/.cache \
 # Pre-download embedding model at build time so startup is instant
 ENV HF_HOME=/app/.cache
 ENV TRANSFORMERS_CACHE=/app/.cache
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-m3')" \
+ARG HF_TOKEN
+RUN HF_TOKEN=${HF_TOKEN} python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-m3')" \
     && chown -R rtv:rtv /app/.cache
 
 # Application code (this layer busts cache on code changes, but deps + model are cached above)

@@ -12,7 +12,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Literal, TypedDict
 
-from langchain_anthropic import ChatAnthropic
+from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
 
 from config.settings import get_settings
@@ -38,18 +38,18 @@ class MultiAgentOrchestrator:
 
     sql_agent: SQLAgent = field(default_factory=SQLAgent)
     rag_agent: RAGAgent = field(default_factory=RAGAgent)
-    _llm: ChatAnthropic | None = field(default=None, init=False, repr=False)
+    _llm: ChatOpenAI | None = field(default=None, init=False, repr=False)
     _graph: Any = field(default=None, init=False, repr=False)
 
     @property
-    def llm(self) -> ChatAnthropic:
+    def llm(self) -> ChatOpenAI:
         if self._llm is None:
             settings = get_settings()
-            self._llm = ChatAnthropic(
+            self._llm = ChatOpenAI(
                 model=settings.llm_model,
                 temperature=0.0,
                 max_tokens=1024,
-                anthropic_api_key=settings.anthropic_api_key,
+                api_key=settings.openai_api_key,
             )
         return self._llm
 

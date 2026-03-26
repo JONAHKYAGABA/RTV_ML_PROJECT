@@ -17,7 +17,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from langchain_anthropic import ChatAnthropic
+from langchain_openai import ChatOpenAI
 
 from config.settings import get_settings
 
@@ -37,17 +37,17 @@ class EvaluationResult:
 class LLMJudge:
     """LLM-based evaluation judge for RAG and SQL agent responses."""
 
-    _llm: ChatAnthropic | None = field(default=None, init=False, repr=False)
+    _llm: ChatOpenAI | None = field(default=None, init=False, repr=False)
 
     @property
-    def llm(self) -> ChatAnthropic:
+    def llm(self) -> ChatOpenAI:
         if self._llm is None:
             settings = get_settings()
-            self._llm = ChatAnthropic(
+            self._llm = ChatOpenAI(
                 model=settings.judge_model,
                 temperature=0.0,
                 max_tokens=2048,
-                anthropic_api_key=settings.anthropic_api_key,
+                api_key=settings.openai_api_key,
             )
         return self._llm
 

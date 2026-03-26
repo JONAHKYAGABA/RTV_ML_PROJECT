@@ -38,18 +38,42 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 orchestrator: MultiAgentOrchestrator | None = None
 judge: LLMJudge | None = None
+redis_client = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize all services on startup, cleanup on shutdown."""
-    global orchestrator, judge
+    global orchestrator, judge, redis_client
 
     logger.info("Initializing RTV Multi-Agent System...")
 
     # Initialize observability
     setup_tracing()
     setup_langsmith()
+
+    # Connect to Redis
+    settings = get_settings()
+    try:
+        import redis
+        redis_client = redis.Redis(
+            host=settings.redis_host,
+            port=settings.redis_port,
+            db=settings.redis_db,
+            socket_timeout=5,
+            socket_connect_timeout=5,
+        )
+        redis_client.ping()
+        logger.info("Redis connected at %s:%s", settings.redis_host, settings.redis_port)
+
+        # Upgrade rate limiter to Redis-backed
+        from src.core import rate_limiter as rl_module
+        from src.core.rate_limiter import RedisRateLimiter
+        rl_module.api_rate_limiter = RedisRateLimiter(redis_client=redis_client)
+        logger.info("Rate limiter upgraded to Redis-backed")
+    except Exception as e:
+        logger.warning("Redis unavailable, using in-memory fallback: %s", e)
+        redis_client = None
 
     # Initialize orchestrator (SQL agent + RAG agent)
     orchestrator = MultiAgentOrchestrator()
@@ -74,6 +98,8 @@ async def lifespan(app: FastAPI):
     # Cleanup
     if orchestrator:
         orchestrator.sql_agent.db.close()
+    if redis_client:
+        redis_client.close()
     logger.info("System shutdown complete.")
 
 

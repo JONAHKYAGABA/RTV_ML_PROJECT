@@ -81,6 +81,18 @@ async def health_check():
         except Exception:
             pass
 
+        try:
+            qdrant_ok = orch.rag_agent.pipeline.vector_store.client.get_collections() is not None
+        except Exception:
+            pass
+
+    try:
+        from src.api.app import redis_client
+        if redis_client:
+            redis_ok = redis_client.ping()
+    except Exception:
+        pass
+
     return HealthResponse(
         status="healthy" if (sql_ready or rag_ready) else "degraded",
         sql_ready=sql_ready,

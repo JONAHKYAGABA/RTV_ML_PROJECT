@@ -5,10 +5,15 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
+      args:
+        - HF_TOKEN=${HF_TOKEN}
     ports:
       - "8000:8000"
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LLM_MODEL=gpt-4o
+      - JUDGE_MODEL=gpt-4o
       - DUCKDB_PATH=/app/data/rtv_households.duckdb
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
@@ -20,6 +25,9 @@ services:
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
       - MINIO_BUCKET=rtv-artifacts
       - EMBEDDING_MODEL=BAAI/bge-m3
+      - HF_HOME=/app/.cache
+      - HF_HUB_OFFLINE=1
+      - TRANSFORMERS_OFFLINE=1
       - LOG_LEVEL=INFO
       - OTEL_ENDPOINT=http://jaeger:4317
       - PYTHONPATH=/app
@@ -47,7 +55,7 @@ services:
 
   # ---- Qdrant Vector Database ----
   qdrant:
-    image: qdrant/qdrant:v1.9.7
+    image: qdrant/qdrant:latest
     ports:
       - "6333:6333"
       - "6334:6334"
@@ -59,7 +67,7 @@ services:
       - QDRANT__STORAGE__ON_DISK_PAYLOAD=true
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:6333/readyz"]
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/localhost/6333'"]
       interval: 5s
       timeout: 3s
       retries: 5

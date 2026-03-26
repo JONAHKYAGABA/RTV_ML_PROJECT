@@ -14,7 +14,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from langchain_anthropic import ChatAnthropic
+from langchain_openai import ChatOpenAI
 
 from config.settings import get_settings
 from src.rag.document_loader import chunk_documents, load_handbook
@@ -40,7 +40,7 @@ class RAGPipeline:
     """End-to-end RAG pipeline for agricultural knowledge queries."""
 
     vector_store: Any = field(default=None)
-    _llm: ChatAnthropic | None = field(default=None, init=False, repr=False)
+    _llm: ChatOpenAI | None = field(default=None, init=False, repr=False)
     _initialized: bool = field(default=False, init=False)
 
     def __post_init__(self):
@@ -48,14 +48,14 @@ class RAGPipeline:
             self.vector_store = _create_vector_store()
 
     @property
-    def llm(self) -> ChatAnthropic:
+    def llm(self) -> ChatOpenAI:
         if self._llm is None:
             settings = get_settings()
-            self._llm = ChatAnthropic(
+            self._llm = ChatOpenAI(
                 model=settings.llm_model,
                 temperature=settings.llm_temperature,
                 max_tokens=settings.llm_max_tokens,
-                anthropic_api_key=settings.anthropic_api_key,
+                api_key=settings.openai_api_key,
             )
         return self._llm
 
@@ -201,11 +201,13 @@ RULES:
 5. Keep the answer concise but complete (under 300 words).
 
 ANSWER:"""
+        
 
         response = self.llm.invoke(prompt)
         answer_text = response.content.strip()
 
         # Hallucination guard: check if answer references non-existent sources
+
         import re
         source_refs = set(re.findall(r"\[Source (\d+)\]", answer_text))
         valid_sources = set(str(i) for i in range(1, len(chunks) + 1))
